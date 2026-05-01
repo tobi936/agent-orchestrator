@@ -1,0 +1,12 @@
+node_modules
+out
+dist
+release
+.vite
+.DS_Store
+*.log
+.env
+.env.local
+data/agents
+data/db.json
+*.tsbuildinfo

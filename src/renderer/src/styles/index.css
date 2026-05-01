@@ -1,0 +1,48 @@
+@import '@xterm/xterm/css/xterm.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  background: #000000;
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #222222;
+  border-radius: 2px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #333333;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.xterm-viewport {
+  background-color: transparent !important;
+}
+
+.xterm {
+  font-feature-settings: 'liga' 0;
+}
