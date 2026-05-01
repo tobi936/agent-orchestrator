@@ -48,6 +48,7 @@ export async function createAgent(input: NewAgentInput): Promise<Agent> {
     name: input.name.trim() || `agent-${id}`,
     systemPrompt: input.systemPrompt,
     model: input.model || 'sonnet',
+    executionMode: input.executionMode || 'local',
     createdAt: new Date().toISOString(),
     status: 'created',
   }

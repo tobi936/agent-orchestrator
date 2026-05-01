@@ -7,7 +7,7 @@ interface Props {
   agentId: string
 }
 
-type ItemKind = 'text' | 'thinking' | 'tool' | 'result'
+type ItemKind = 'text' | 'thinking' | 'tool' | 'result' | 'separator'
 interface Item { kind: ItemKind; text: string }
 
 export function isWatcherLine(line: LogLine): boolean {
@@ -16,6 +16,8 @@ export function isWatcherLine(line: LogLine): boolean {
 }
 
 function classifyLine(raw: string): Item {
+  if (raw.startsWith('[SESSION_START]')) return { kind: 'separator', text: 'Neue Session' }
+  if (raw.startsWith('[TASK_START]'))    return { kind: 'separator', text: 'Neue Aufgabe' }
   if (raw.startsWith('[THINKING] ')) return { kind: 'thinking', text: raw.slice(11) }
   if (raw.startsWith('[TOOL] '))     return { kind: 'tool',     text: raw.slice(7) }
   if (raw.startsWith('[RESULT] '))   return { kind: 'result',   text: raw.slice(9) }
@@ -34,6 +36,15 @@ function processChunk(chunk: string, buf: string): [Item[], string] {
 }
 
 function ItemRow({ item }: { item: Item }) {
+  if (item.kind === 'separator') {
+    return (
+      <div className="flex items-center gap-2 my-4">
+        <div className="flex-1 h-px bg-term-border" />
+        <span className="text-term-muted text-xs opacity-50 tracking-widest uppercase">{item.text}</span>
+        <div className="flex-1 h-px bg-term-border" />
+      </div>
+    )
+  }
   if (item.kind === 'thinking') {
     return (
       <div className="flex gap-2 my-1 opacity-60 italic text-xs text-term-muted">
