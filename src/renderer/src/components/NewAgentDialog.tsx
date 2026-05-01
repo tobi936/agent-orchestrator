@@ -8,6 +8,12 @@ interface Props {
   onCreated: (a: Agent) => void
 }
 
+const MODELS = [
+  { value: 'haiku', label: 'HAiku', desc: 'FAST / LOW-COST — SIMPLE TASKS' },
+  { value: 'sonnet', label: 'SONNET', desc: 'BALANCED — RECOMMENDED FOR MOST TASKS' },
+  { value: 'opus', label: 'OPUS', desc: 'MAXIMUM POWER — COMPLEX ANALYSIS' },
+]
+
 export function NewAgentDialog({ open, onClose, onCreated }: Props) {
   const [name, setName] = useState('')
   const [systemPrompt, setSystemPrompt] = useState('')
@@ -29,71 +35,100 @@ export function NewAgentDialog({ open, onClose, onCreated }: Props) {
       setModel('sonnet')
       onClose()
     } catch (err) {
-      setError(String(err))
+      setError('[CREATE FAILED] Agent could not be created. Please try again.')
+      console.error(err)
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
       <form
         onSubmit={submit}
-        className="bg-term-panel border border-term-border rounded p-4 w-[480px] flex flex-col gap-3"
+        className="bg-term-panel border border-term-border rounded-sm p-5 w-[560px] flex flex-col gap-4 shadow-2xl"
       >
-        <h2 className="text-sm uppercase tracking-wider text-term-muted">new agent</h2>
+        <div>
+          <h2 className="text-sm font-mono uppercase tracking-widest text-term-text">[ INITIALIZE NEW AGENT ]</h2>
+          <p className="text-[10px] text-term-muted mt-1 font-mono">
+            Configure agent parameters and system directives.
+          </p>
+        </div>
 
-        <label className="flex flex-col gap-1 text-xs text-term-muted">
-          name
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[10px] text-term-text font-mono uppercase tracking-wider">[ DESIGNATION ]</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="researcher"
+            placeholder="E.G. RESEARCH-AGENT, CODING-ASSISTANT..."
             required
-            className="bg-term-bg border border-term-border rounded px-2 py-1 text-sm text-term-text outline-none focus:border-term-accent"
+            className="bg-black border border-term-border rounded-sm px-3 py-2 text-xs text-term-text font-mono outline-none focus:border-term-blue placeholder:text-term-muted/30"
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-xs text-term-muted">
-          model
-          <select
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            className="bg-term-bg border border-term-border rounded px-2 py-1 text-sm text-term-text outline-none focus:border-term-accent"
-          >
-            <option value="sonnet">sonnet</option>
-            <option value="opus">opus</option>
-            <option value="haiku">haiku</option>
-          </select>
-        </label>
+        <div className="flex flex-col gap-2">
+          <span className="text-[10px] text-term-text font-mono uppercase tracking-wider">[ MODEL SELECT ]</span>
+          <div className="flex flex-col gap-1.5">
+            {MODELS.map((m) => (
+              <label
+                key={m.value}
+                className={`flex items-start gap-3 p-2.5 rounded-sm border cursor-pointer transition-colors font-mono ${
+                  model === m.value
+                    ? 'border-term-accent bg-term-accent/10'
+                    : 'border-term-border hover:border-term-muted'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="model"
+                  value={m.value}
+                  checked={model === m.value}
+                  onChange={() => setModel(m.value)}
+                  className="mt-0.5 accent-[#00FF00]"
+                />
+                <div>
+                  <span className="text-[10px] text-term-text">{m.label}</span>
+                  <p className="text-[9px] text-term-muted mt-0.5">{m.desc}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
 
-        <label className="flex flex-col gap-1 text-xs text-term-muted">
-          system prompt
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[10px] text-term-text font-mono uppercase tracking-wider">[ SYSTEM DIRECTIVES ]</span>
+          <span className="text-[9px] text-term-muted font-mono">
+            Define agent behavior patterns and operational parameters.
+          </span>
           <textarea
             value={systemPrompt}
             onChange={(e) => setSystemPrompt(e.target.value)}
-            placeholder="You are a research agent. When you need to delegate, append:&#10;DELEGATE-TO: <agent-name>&#10;BODY:&#10;..."
-            rows={6}
-            className="bg-term-bg border border-term-border rounded px-2 py-1 text-sm text-term-text outline-none focus:border-term-accent resize-none"
+            placeholder="YOU ARE A HELPFUL RESEARCH AGENT. YOU ANALYZE TEXTS, SUMMARIZE INFORMATION, AND PROVIDE CLEAR, STRUCTURED RESPONSES."
+            rows={4}
+            className="bg-black border border-term-border rounded-sm px-3 py-2 text-xs text-term-text font-mono outline-none focus:border-term-blue resize-none placeholder:text-term-muted/30"
           />
         </label>
 
-        {error && <div className="text-xs text-term-err">{error}</div>}
+        {error && (
+          <div className="text-[10px] text-term-err bg-term-err/10 border border-term-err/30 rounded-sm px-3 py-2 font-mono">
+            {error}
+          </div>
+        )}
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex justify-end gap-2 pt-1">
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1 text-xs border border-term-border rounded text-term-muted hover:text-term-text"
+            className="px-4 py-1.5 text-[10px] font-mono border border-term-border rounded-sm text-term-muted hover:text-term-text hover:border-term-muted transition-colors uppercase"
           >
-            cancel
+            [ CANCEL ]
           </button>
           <button
             type="submit"
             disabled={submitting}
-            className="px-3 py-1 text-xs border border-term-accent rounded text-term-accent hover:bg-term-accent hover:text-term-bg disabled:opacity-50"
+            className="px-4 py-1.5 text-[10px] font-mono border border-term-accent rounded-sm text-term-accent hover:bg-term-accent hover:text-black disabled:opacity-50 transition-colors uppercase"
           >
-            {submitting ? 'creating…' : 'create'}
+            {submitting ? '[INITIALIZING...]' : '[INITIALIZE AGENT]'}
           </button>
         </div>
       </form>

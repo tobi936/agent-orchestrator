@@ -7,7 +7,7 @@ interface Props {
   onNew: () => void
 }
 
-const statusColor: Record<Agent['status'], string> = {
+const statusDot: Record<Agent['status'], string> = {
   created: 'bg-term-muted',
   starting: 'bg-term-warn animate-pulse',
   running: 'bg-term-ok',
@@ -17,37 +17,48 @@ const statusColor: Record<Agent['status'], string> = {
   error: 'bg-term-err',
 }
 
+const statusLabel: Record<Agent['status'], string> = {
+  created: 'READY',
+  starting: 'STARTING',
+  running: 'RUNNING',
+  idle: 'IDLE',
+  stopping: 'STOPPING',
+  stopped: 'STOPPED',
+  error: 'ERROR',
+}
+
 export function AgentSidebar({ agents, selectedId, onSelect, onNew }: Props) {
   return (
-    <aside className="flex flex-col w-64 border-r border-term-border bg-term-panel">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-term-border">
-        <span className="text-xs uppercase tracking-wider text-term-muted">agents</span>
+    <aside className="flex flex-col w-64 border-r border-term-border bg-term-panel flex-shrink-0">
+      <div className="px-2 py-2 border-b border-term-border">
+        <span className="text-[10px] uppercase tracking-widest text-term-muted block mb-2 font-mono">AGENTS</span>
         <button
           onClick={onNew}
-          className="text-xs px-2 py-0.5 border border-term-border rounded hover:bg-term-bg hover:text-term-accent transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-2 py-1.5 bg-transparent border border-term-accent rounded-sm text-[10px] text-term-accent hover:bg-term-accent hover:text-black transition-colors font-mono uppercase tracking-wider"
         >
-          + new
+          <span className="text-sm leading-none">+</span>
+          <span>NEW AGENT</span>
         </button>
       </div>
-      <ul className="flex-1 overflow-y-auto py-1">
+      <ul className="flex-1 overflow-y-auto py-0.5">
         {agents.length === 0 && (
-          <li className="px-3 py-4 text-xs text-term-muted">
-            No agents yet. Click <span className="text-term-accent">+ new</span> to create one.
+          <li className="px-2 py-3 text-[10px] text-term-muted text-center leading-relaxed font-mono">
+            NO AGENTS INITIALIZED
           </li>
         )}
         {agents.map((a) => (
           <li key={a.id}>
             <button
               onClick={() => onSelect(a.id)}
-              className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 border-l-2 transition-colors ${
+              className={`w-full text-left px-2 py-1.5 text-[10px] font-mono flex items-center gap-2 border-l-2 transition-colors ${
                 selectedId === a.id
                   ? 'border-term-accent bg-term-bg text-term-text'
                   : 'border-transparent hover:bg-term-bg/60 text-term-muted hover:text-term-text'
               }`}
             >
-              <span className={`inline-block w-2 h-2 rounded-full ${statusColor[a.status]}`} />
-              <span className="flex-1 truncate">{a.name}</span>
-              <span className="text-[10px] opacity-50">{a.id.slice(0, 4)}</span>
+              <span className={`inline-block w-1.5 h-1.5 rounded-sm flex-shrink-0 ${statusDot[a.status]}`} />
+              <span className="flex-1 truncate uppercase tracking-wide">{a.name}</span>
+              <span className="text-[9px] opacity-60 flex-shrink-0 font-mono">{statusLabel[a.status]}</span>
             </button>
           </li>
         ))}

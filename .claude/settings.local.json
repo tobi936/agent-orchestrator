@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git config *)",
+      "Bash(gh repo *)",
+      "Bash(git -C \"C:/Dev/agent-orchestrator\" status)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(npm list *)"
+    ]
+  }
+}

@@ -15,11 +15,16 @@ export function useAgents() {
   useEffect(() => {
     let mounted = true
     void (async () => {
-      const [list, status] = await Promise.all([agentsApi.list(), dockerApi.status()])
-      if (!mounted) return
-      setAgents(list)
-      setDocker(status)
-      setLoading(false)
+      try {
+        const [list, status] = await Promise.all([agentsApi.list(), dockerApi.status()])
+        if (!mounted) return
+        setAgents(list)
+        setDocker(status)
+      } catch {
+        // IPC not ready yet or Docker unavailable — still unblock the UI
+      } finally {
+        if (mounted) setLoading(false)
+      }
     })()
     return () => {
       mounted = false

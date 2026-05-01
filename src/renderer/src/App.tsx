@@ -22,12 +22,12 @@ export function App() {
   const selected = agents.find((a) => a.id === selectedId) ?? null
 
   return (
-    <div className="flex flex-col h-full">
-      <header className="flex items-center px-3 py-2 border-b border-term-border bg-term-panel">
+    <div className="flex flex-col h-full font-mono text-xs">
+      <header className="flex items-center px-3 py-1.5 border-b border-term-border bg-term-panel flex-shrink-0">
         <span className="text-term-accent">▌</span>
-        <span className="ml-2 text-sm tracking-wider">agent orchestrator</span>
-        <span className="ml-3 text-xs text-term-muted">
-          {agents.length} agent{agents.length === 1 ? '' : 's'}
+        <span className="ml-2 text-xs tracking-widest uppercase text-term-text">agent orchestrator</span>
+        <span className="ml-4 text-[10px] text-term-muted font-mono">
+          [{agents.length}] AGENT{agents.length === 1 ? '' : 'S'} ACTIVE
         </span>
       </header>
 
@@ -70,21 +70,19 @@ export function App() {
 
 function EmptyState({ onNew }: { onNew: () => void }) {
   return (
-    <div className="m-auto flex flex-col items-center gap-3 text-term-muted">
-      <pre className="text-term-accent text-xs leading-tight">
-{` _____  _____  _____  _   _  _____
-|  _  ||  __ \\|  ___|| \\ | ||_   _|
-| |_| || |  \\/| |__  |  \\| |  | |
-|  _  || | __ |  __| | . \` |  | |
-| | | || |_\\ \\| |___ | |\\  |  | |
-\\_| |_/ \\____/\\____/ \\_| \\_/  \\_/`}
-      </pre>
-      <span className="text-sm">no agent selected</span>
+    <div className="m-auto flex flex-col items-center gap-6 text-term-muted max-w-sm text-center px-6">
+      <div className="text-5xl font-mono">[ _ ]</div>
+      <div>
+        <p className="text-term-text text-sm font-mono uppercase tracking-wider">[ NO AGENT SELECTED ]</p>
+        <p className="text-[10px] mt-2 leading-relaxed font-mono text-term-muted">
+          INITIALIZE NEW AGENT TO BEGIN OPERATIONS
+        </p>
+      </div>
       <button
         onClick={onNew}
-        className="px-4 py-2 mt-2 text-xs border border-term-accent rounded text-term-accent hover:bg-term-accent hover:text-term-bg"
+        className="px-6 py-2 text-xs font-mono border border-term-accent rounded-sm text-term-accent hover:bg-term-accent hover:text-black transition-colors uppercase tracking-wider"
       >
-        + create your first agent
+        [ + CREATE AGENT ]
       </button>
     </div>
   )

@@ -49,7 +49,18 @@ export function registerIpc(
     const agent = await getAgent(id)
     if (!agent) throw new Error(`Agent ${id} not found`)
     await updateAgent(id, { status: 'starting', lastError: undefined })
+
+    const emitLog = (text: string) => {
+      const line: LogLine = { agentId: id, stream: 'system', ts: new Date().toISOString(), text }
+      logBuffer.append(line)
+      send('agent:log', line)
+    }
+
     try {
+      await docker.ensureDockerRunning(emitLog)
+      if (!(await docker.ensureImage())) {
+        await docker.buildAgentImage(emitLog)
+      }
       const containerId = await docker.startAgent(
         agent.id,
         agent.name,

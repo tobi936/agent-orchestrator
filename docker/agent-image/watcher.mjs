@@ -1,16 +1,4 @@
 #!/usr/bin/env node
-/**
- * Inbox/Outbox watcher for a Claude Code agent.
- *
- * Reads JSON message files from /data/inbox, runs `claude -p` with the
- * combined system prompt + body, and writes the assistant's reply to
- * /data/outbox addressed back to the sender.
- *
- * The body may contain a delegation directive on the first line that the
- * orchestrator picks up and forwards. The agent communicates the directive
- * by emitting a JSON file directly into /data/outbox like:
- *   { "to": "<agent-id-or-name>", "subject": "...", "body": "..." }
- */
 import { spawn } from 'node:child_process'
 import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -36,9 +24,40 @@ async function ensureDirs() {
   }
 }
 
+function handleStreamEvent(event) {
+  if (event.type === 'assistant' && Array.isArray(event.message?.content)) {
+    for (const block of event.message.content) {
+      if (block.type === 'thinking' && block.thinking) {
+        const preview = block.thinking.length > 500
+          ? block.thinking.slice(0, 500).replace(/\n+/g, ' ') + '…'
+          : block.thinking.replace(/\n+/g, ' ')
+        process.stdout.write(`[THINKING] ${preview}\n`)
+      } else if (block.type === 'text' && block.text) {
+        process.stdout.write(block.text)
+      } else if (block.type === 'tool_use') {
+        const inputStr = JSON.stringify(block.input)
+        const short = inputStr.length > 150 ? inputStr.slice(0, 150) + '…' : inputStr
+        process.stdout.write(`[TOOL] ${block.name}: ${short}\n`)
+      }
+    }
+  } else if (event.type === 'user' && Array.isArray(event.message?.content)) {
+    for (const block of event.message.content) {
+      if (block.type === 'tool_result') {
+        const raw = Array.isArray(block.content)
+          ? block.content.filter(c => c.type === 'text').map(c => c.text).join('')
+          : String(block.content ?? '')
+        if (raw.trim()) {
+          const preview = raw.length > 400 ? raw.slice(0, 400) + '…' : raw
+          process.stdout.write(`[RESULT] ${preview.trim()}\n`)
+        }
+      }
+    }
+  }
+}
+
 function runClaude(prompt) {
   return new Promise((resolve, reject) => {
-    const args = ['-p', prompt, '--output-format', 'text', '--model', AGENT_MODEL]
+    const args = ['-p', prompt, '--output-format', 'stream-json', '--model', AGENT_MODEL]
     if (AGENT_SYSTEM_PROMPT) {
       args.push('--append-system-prompt', AGENT_SYSTEM_PROMPT)
     }
@@ -48,39 +67,46 @@ function runClaude(prompt) {
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
-    let stdout = ''
+    let lineBuffer = ''
+    let finalResult = ''
     let stderr = ''
+
     child.stdout.on('data', (d) => {
-      const chunk = d.toString('utf8')
-      stdout += chunk
-      process.stdout.write(chunk)
+      lineBuffer += d.toString('utf8')
+      const lines = lineBuffer.split('\n')
+      lineBuffer = lines.pop() ?? ''
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const event = JSON.parse(line)
+          handleStreamEvent(event)
+          if (event.type === 'result' && event.result) {
+            finalResult = event.result
+          }
+        } catch {
+          process.stdout.write(line + '\n')
+        }
+      }
     })
+
     child.stderr.on('data', (d) => {
       const chunk = d.toString('utf8')
       stderr += chunk
       process.stderr.write(chunk)
     })
+
     child.on('error', reject)
     child.on('close', (code) => {
-      if (code === 0) resolve(stdout.trim())
+      if (code === 0) resolve(finalResult)
       else reject(new Error(`claude exited with ${code}: ${stderr.trim()}`))
     })
   })
 }
 
 function parseDelegation(reply) {
-  // Convention: agent ends reply with a line like:
-  //   DELEGATE-TO: <name-or-id>
-  //   SUBJECT: <optional>
-  //   BODY:
-  //   ... rest is the body for that agent ...
   const match = reply.match(/DELEGATE-TO:\s*(\S+)\s*\n(?:SUBJECT:\s*([^\n]+)\n)?BODY:\s*\n([\s\S]+)$/)
   if (!match) return null
-  return {
-    to: match[1].trim(),
-    subject: match[2]?.trim(),
-    body: match[3].trim(),
-  }
+  return { to: match[1].trim(), subject: match[2]?.trim(), body: match[3].trim() }
 }
 
 async function processFile(file) {
@@ -115,16 +141,7 @@ async function processFile(file) {
     const errFile = `${Date.now()}-error-${msg.id || 'msg'}.json`
     await writeFile(
       join(OUTBOX, errFile),
-      JSON.stringify(
-        {
-          to: msg.from || 'orchestrator',
-          subject: `Error replying to ${msg.subject || msg.id || ''}`.trim(),
-          body: `Agent failed: ${err.message}`,
-          inReplyTo: msg.id,
-        },
-        null,
-        2,
-      ),
+      JSON.stringify({ to: msg.from || 'orchestrator', subject: `Error replying to ${msg.subject || msg.id || ''}`.trim(), body: `Agent failed: ${err.message}`, inReplyTo: msg.id }, null, 2),
       'utf8',
     )
     await rename(fullPath, join(PROCESSED, file))
@@ -134,11 +151,7 @@ async function processFile(file) {
   const delegation = parseDelegation(reply)
   if (delegation) {
     const delFile = `${Date.now()}-delegate-${delegation.to}.json`
-    await writeFile(
-      join(OUTBOX, delFile),
-      JSON.stringify(delegation, null, 2),
-      'utf8',
-    )
+    await writeFile(join(OUTBOX, delFile), JSON.stringify(delegation, null, 2), 'utf8')
     log(`delegated to ${delegation.to}`)
   }
 
@@ -146,16 +159,7 @@ async function processFile(file) {
     const replyFile = `${Date.now()}-reply-${msg.id || 'msg'}.json`
     await writeFile(
       join(OUTBOX, replyFile),
-      JSON.stringify(
-        {
-          to: msg.from,
-          subject: msg.subject ? `Re: ${msg.subject}` : 'Reply',
-          body: delegation ? reply.replace(/DELEGATE-TO:[\s\S]*$/, '').trim() : reply,
-          inReplyTo: msg.id,
-        },
-        null,
-        2,
-      ),
+      JSON.stringify({ to: msg.from, subject: msg.subject ? `Re: ${msg.subject}` : 'Reply', body: delegation ? reply.replace(/DELEGATE-TO:[\s\S]*$/, '').trim() : reply, inReplyTo: msg.id }, null, 2),
       'utf8',
     )
   }
@@ -171,10 +175,7 @@ async function tick() {
   } catch {
     return
   }
-  const files = entries
-    .filter((e) => e.isFile() && e.name.endsWith('.json'))
-    .map((e) => e.name)
-    .sort()
+  const files = entries.filter(e => e.isFile() && e.name.endsWith('.json')).map(e => e.name).sort()
   for (const file of files) {
     try {
       await processFile(file)
@@ -198,13 +199,10 @@ async function main() {
     log('WARNING: no Claude credentials mounted at /home/agent/.claude')
   }
 
-  // Process anything already in the inbox on startup
   await tick()
 
-  // Poll loop. chokidar would be nicer but adds a dependency to the image;
-  // a 2s poll is fine for human-paced delegation.
   const interval = setInterval(() => {
-    tick().catch((err) => log(`tick error: ${err.message}`))
+    tick().catch(err => log(`tick error: ${err.message}`))
   }, 2000)
 
   const shutdown = (sig) => {
@@ -216,7 +214,7 @@ async function main() {
   process.on('SIGINT', () => shutdown('SIGINT'))
 }
 
-main().catch((err) => {
+main().catch(err => {
   console.error('fatal:', err)
   process.exit(1)
 })

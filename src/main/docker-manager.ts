@@ -1,18 +1,92 @@
 import Docker from 'dockerode'
+import { app } from 'electron'
+import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { EventEmitter } from 'node:events'
 import { agentInbox, agentOutbox, agentWorkspace } from './paths.js'
 import type { LogLine } from '../shared/types.js'
+
+const DOCKER_DESKTOP_PATHS = [
+  'C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe',
+  'C:\\Program Files (x86)\\Docker\\Docker\\Docker Desktop.exe',
+]
 
 export const AGENT_IMAGE = 'agent-orchestrator/claude-agent:latest'
 
 export class DockerManager extends EventEmitter {
   private docker: Docker
   private streams = new Map<string, NodeJS.ReadableStream>()
+  private containerToAgent = new Map<string, string>()
 
   constructor() {
     super()
     this.docker = new Docker()
+  }
+
+  async ensureDockerRunning(onLog: (text: string) => void): Promise<void> {
+    if (await this.ping()) return
+
+    const exePath = DOCKER_DESKTOP_PATHS.find((p) => existsSync(p))
+    if (!exePath) {
+      throw new Error(
+        'Docker Desktop nicht gefunden. Bitte installiere Docker Desktop von https://docker.com',
+      )
+    }
+
+    onLog('Docker Desktop wird gestartet…')
+    spawn(exePath, [], { detached: true, stdio: 'ignore' }).unref()
+
+    const deadline = Date.now() + 90_000
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 3000))
+      if (await this.ping()) {
+        onLog('Docker Desktop ist bereit.')
+        return
+      }
+      onLog('Warte auf Docker Desktop…')
+    }
+
+    throw new Error(
+      'Docker Desktop konnte nicht gestartet werden. Bitte starte es manuell und versuche es erneut.',
+    )
+  }
+
+  async buildAgentImage(onLog: (text: string) => void): Promise<void> {
+    const contextDir = join(app.getAppPath(), 'docker', 'agent-image')
+    if (!existsSync(contextDir)) {
+      throw new Error(`Docker-Build-Kontext nicht gefunden: ${contextDir}`)
+    }
+
+    onLog('Agent-Image wird gebaut (einmalig, ~2-5 Minuten)…')
+
+    const tail: string[] = []
+
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn('docker', ['build', '--progress=plain', '-t', AGENT_IMAGE, contextDir], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      const handleChunk = (chunk: Buffer) => {
+        chunk.toString('utf8').split(/\r?\n/).forEach((line) => {
+          if (!line.trim()) return
+          onLog(line)
+          tail.push(line)
+          if (tail.length > 20) tail.shift()
+        })
+      }
+      proc.stdout?.on('data', handleChunk)
+      proc.stderr?.on('data', handleChunk)
+      proc.on('close', (code) => {
+        if (code === 0) resolve()
+        else reject(new Error(`docker build fehlgeschlagen. Letzte Zeilen:\n${tail.slice(-8).join('\n')}`))
+      })
+      proc.on('error', (err) =>
+        reject(new Error(`docker build konnte nicht gestartet werden: ${err.message}`)),
+      )
+    })
+
+    onLog('✓ Agent-Image erfolgreich gebaut.')
   }
 
   async ping(): Promise<boolean> {
@@ -74,6 +148,17 @@ export class DockerManager extends EventEmitter {
     } catch (err: unknown) {
       const e = err as { statusCode?: number }
       if (e.statusCode !== 304 && e.statusCode !== 404) throw err
+    } finally {
+      // Cleanup stream to prevent duplicate listeners on restart
+      const agentId = this.containerToAgent.get(containerId)
+      if (agentId) {
+        const stream = this.streams.get(agentId)
+        if (stream) {
+          stream.destroy()
+          this.streams.delete(agentId)
+        }
+        this.containerToAgent.delete(containerId)
+      }
     }
   }
 
@@ -84,6 +169,16 @@ export class DockerManager extends EventEmitter {
     } catch (err: unknown) {
       const e = err as { statusCode?: number }
       if (e.statusCode !== 404) throw err
+    } finally {
+      const agentId = this.containerToAgent.get(containerId)
+      if (agentId) {
+        const stream = this.streams.get(agentId)
+        if (stream) {
+          stream.destroy()
+          this.streams.delete(agentId)
+        }
+        this.containerToAgent.delete(containerId)
+      }
     }
   }
 
@@ -105,6 +200,7 @@ export class DockerManager extends EventEmitter {
       timestamps: false,
     })
     this.streams.set(agentId, stream as unknown as NodeJS.ReadableStream)
+    this.containerToAgent.set(container.id, agentId)
 
     const stdout = new EventEmitter()
     const stderr = new EventEmitter()
@@ -119,6 +215,7 @@ export class DockerManager extends EventEmitter {
 
     stream.on('end', () => {
       this.streams.delete(agentId)
+      this.containerToAgent.delete(container.id)
       const line: LogLine = {
         agentId,
         stream: 'system',

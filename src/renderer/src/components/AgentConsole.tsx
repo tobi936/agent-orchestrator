@@ -32,7 +32,7 @@ function formatLine(line: LogLine): string {
   }
 }
 
-export function AgentConsole({ agentId }: Props) {
+export function AgentConsole({ agentId, agentName }: Props & { agentName: string }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -42,24 +42,52 @@ export function AgentConsole({ agentId }: Props) {
     const term = new Terminal({
       fontFamily: '"JetBrains Mono", "Fira Code", monospace',
       fontSize: 12,
-      lineHeight: 1.3,
+      lineHeight: 1.5,
       cursorBlink: false,
       disableStdin: true,
       convertEol: true,
       scrollback: 5000,
+      allowProposedApi: true,
       theme: {
-        background: '#0b0d10',
-        foreground: '#d6deeb',
-        cursor: '#7fdbca',
-        black: '#1e2530',
-        brightBlack: '#7a8aa3',
+        background: '#000000',
+        foreground: '#e0e0e0',
+        cursor: '#00FF00',
+        black: '#111111',
+        red: '#FF4444',
+        green: '#00FF00',
+        yellow: '#FFBF00',
+        blue: '#4444FF',
+        magenta: '#FF00FF',
+        cyan: '#00FFFF',
+        white: '#e0e0e0',
+        brightBlack: '#666666',
+        brightRed: '#FF6666',
+        brightGreen: '#66FF66',
+        brightYellow: '#FFFF66',
+        brightBlue: '#6666FF',
+        brightMagenta: '#FF66FF',
+        brightCyan: '#66FFFF',
+        brightWhite: '#ffffff',
       },
     })
     const fit = new FitAddon()
     term.loadAddon(fit)
     term.open(containerRef.current)
     fit.fit()
-    term.writeln(`\x1b[2m── console for agent ${agentId} ──\x1b[0m`)
+    term.writeln(`\x1b[1m\x1b[36m▌ ${agentName}\x1b[0m\x1b[2m (ID: ${agentId})\x1b[0m`)
+
+    // Ctrl+A selects all, Ctrl+C copies selection
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.ctrlKey && e.key === 'a') {
+        term.selectAll()
+        return false
+      }
+      if (e.ctrlKey && e.key === 'c' && term.hasSelection()) {
+        void navigator.clipboard.writeText(term.getSelection())
+        return false
+      }
+      return true
+    })
     termRef.current = term
     fitRef.current = fit
 
@@ -100,5 +128,5 @@ export function AgentConsole({ agentId }: Props) {
     }
   })
 
-  return <div ref={containerRef} className="flex-1 min-h-0 px-2 pt-2 bg-term-bg" />
+  return <div ref={containerRef} className="flex-1 min-h-0 px-2 pt-2 bg-term-bg font-mono" />
 }

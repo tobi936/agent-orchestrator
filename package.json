@@ -24,8 +24,8 @@
     "@xterm/xterm": "^5.5.0",
     "chokidar": "^4.0.3",
     "dockerode": "^4.0.7",
-    "lowdb": "^7.0.1",
-    "nanoid": "^5.1.5"
+    "lowdb": "^3.0.0",
+    "nanoid": "^3.3.12"
   },
   "devDependencies": {
     "@types/dockerode": "^3.3.42",

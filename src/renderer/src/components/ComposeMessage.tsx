@@ -38,16 +38,16 @@ export function ComposeMessage({ target, agents }: Props) {
   return (
     <form
       onSubmit={send}
-      className="border-t border-term-border bg-term-panel p-2 flex flex-col gap-2"
+      className="border-t border-term-border bg-term-panel p-2 flex flex-col gap-2 flex-shrink-0"
     >
-      <div className="flex items-center gap-2 text-xs">
-        <label className="text-term-muted">from</label>
+      <div className="flex items-center gap-2 text-[10px] font-mono">
+        <label className="text-term-muted uppercase">[FROM]</label>
         <select
           value={from}
           onChange={(e) => setFrom(e.target.value)}
-          className="bg-term-bg border border-term-border rounded px-2 py-1 text-term-text"
+          className="bg-black border border-term-border rounded-sm px-2 py-1 text-term-text font-mono outline-none focus:border-term-blue"
         >
-          <option value="orchestrator">orchestrator (you)</option>
+          <option value="orchestrator">orchestrator</option>
           {agents
             .filter((a) => a.id !== target.id)
             .map((a) => (
@@ -56,35 +56,35 @@ export function ComposeMessage({ target, agents }: Props) {
               </option>
             ))}
         </select>
-        <label className="text-term-muted ml-2">to</label>
+        <label className="text-term-muted ml-3 uppercase">[TO]</label>
         <span className="text-term-accent">{target.name}</span>
         <input
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
-          placeholder="subject (optional)"
-          className="ml-auto bg-term-bg border border-term-border rounded px-2 py-1 text-term-text w-64 outline-none focus:border-term-accent"
+          placeholder="SUBJECT"
+          className="ml-auto bg-black border border-term-border rounded-sm px-2 py-1 text-term-text font-mono outline-none focus:border-term-blue placeholder:text-term-muted/30"
         />
       </div>
       <div className="flex gap-2 items-end">
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder={`message to ${target.name}…  (Ctrl+Enter to send)`}
-          rows={3}
+          placeholder={`MESSAGE TO ${target.name.toUpperCase()}... (CTRL+ENTER TO SEND)`}
+          rows={2}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void send(e)
           }}
-          className="flex-1 bg-term-bg border border-term-border rounded px-2 py-1 text-sm text-term-text outline-none focus:border-term-accent resize-none"
+          className="flex-1 bg-black border border-term-border rounded-sm px-2 py-1.5 text-xs text-term-text font-mono outline-none focus:border-term-blue resize-none placeholder:text-term-muted/30"
         />
         <button
           type="submit"
           disabled={sending || !body.trim()}
-          className="px-3 py-2 text-xs border border-term-accent rounded text-term-accent hover:bg-term-accent hover:text-term-bg disabled:opacity-30"
+          className="px-3 py-1.5 text-[10px] font-mono border border-term-accent rounded-sm text-term-accent hover:bg-term-accent hover:text-black disabled:opacity-30 transition-colors uppercase"
         >
-          {sending ? 'sending…' : 'send →'}
+          {sending ? '[SENDING]' : '[SEND]'}
         </button>
       </div>
-      {error && <div className="text-xs text-term-err">{error}</div>}
+      {error && <div className="text-[10px] text-term-err font-mono">[ERROR] {error}</div>}
     </form>
   )
 }

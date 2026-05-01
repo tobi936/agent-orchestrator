@@ -10,11 +10,10 @@ RUN apt-get update \
 RUN npm install -g @anthropic-ai/claude-code@latest \
  && npm cache clean --force
 
-# Non-root user so files in mounted volumes stay writable on Linux hosts
-ARG AGENT_UID=1000
-ARG AGENT_GID=1000
-RUN (getent group ${AGENT_GID} || groupadd -g ${AGENT_GID} agent) \
- && (id -u agent >/dev/null 2>&1 || useradd -m -u ${AGENT_UID} -g ${AGENT_GID} -s /bin/bash agent)
+# Rename the pre-existing 'node' user/group (UID/GID 1000) to 'agent'
+# Avoids useradd UID conflicts on node base images
+RUN usermod -l agent -d /home/agent -m node \
+ && groupmod -n agent node
 
 # Watcher script
 COPY watcher.mjs /opt/agent/watcher.mjs

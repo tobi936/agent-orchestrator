@@ -1,4 +1,4 @@
-import { JSONFilePreset } from 'lowdb/node'
+import { Low, JSONFile } from 'lowdb'
 import { nanoid } from 'nanoid'
 import type { Agent, AgentMessage, NewAgentInput } from '../shared/types.js'
 import { dbFile, ensureAgentDirs, ensureRoot } from './paths.js'
@@ -10,28 +10,38 @@ interface DBSchema {
 
 const defaults: DBSchema = { agents: [], messages: [] }
 
-let dbPromise: Promise<Awaited<ReturnType<typeof JSONFilePreset<DBSchema>>>> | null = null
+let dbInstance: Low<DBSchema> | null = null
 
-async function db() {
-  if (!dbPromise) {
+async function getDb(): Promise<Low<DBSchema>> {
+  if (!dbInstance) {
     ensureRoot()
-    dbPromise = JSONFilePreset<DBSchema>(dbFile, defaults)
+    const adapter = new JSONFile<DBSchema>(dbFile)
+    dbInstance = new Low<DBSchema>(adapter)
+    await dbInstance.read()
+    dbInstance.data ??= { agents: [], messages: [] }
+    dbInstance.data.agents ??= []
+    dbInstance.data.messages ??= []
   }
-  return dbPromise
+  return dbInstance
+}
+
+function data(db: Low<DBSchema>): DBSchema {
+  return db.data ?? defaults
 }
 
 export async function listAgents(): Promise<Agent[]> {
-  const d = await db()
-  return d.data.agents
+  const db = await getDb()
+  return data(db).agents
 }
 
 export async function getAgent(id: string): Promise<Agent | undefined> {
-  const d = await db()
-  return d.data.agents.find((a) => a.id === id)
+  const db = await getDb()
+  return data(db).agents.find((a) => a.id === id)
 }
 
 export async function createAgent(input: NewAgentInput): Promise<Agent> {
-  const d = await db()
+  const db = await getDb()
+  const d = data(db)
   const id = nanoid(10)
   const agent: Agent = {
     id,
@@ -42,48 +52,52 @@ export async function createAgent(input: NewAgentInput): Promise<Agent> {
     status: 'created',
   }
   ensureAgentDirs(id)
-  d.data.agents.push(agent)
-  await d.write()
+  d.agents.push(agent)
+  await db.write()
   return agent
 }
 
 export async function updateAgent(id: string, patch: Partial<Agent>): Promise<Agent | undefined> {
-  const d = await db()
-  const idx = d.data.agents.findIndex((a) => a.id === id)
+  const db = await getDb()
+  const d = data(db)
+  const idx = d.agents.findIndex((a) => a.id === id)
   if (idx === -1) return undefined
-  d.data.agents[idx] = { ...d.data.agents[idx], ...patch }
-  await d.write()
-  return d.data.agents[idx]
+  d.agents[idx] = { ...d.agents[idx], ...patch }
+  await db.write()
+  return d.agents[idx]
 }
 
 export async function deleteAgent(id: string): Promise<void> {
-  const d = await db()
-  d.data.agents = d.data.agents.filter((a) => a.id !== id)
-  d.data.messages = d.data.messages.filter((m) => m.from !== id && m.to !== id)
-  await d.write()
+  const db = await getDb()
+  const d = data(db)
+  d.agents = d.agents.filter((a) => a.id !== id)
+  d.messages = d.messages.filter((m) => m.from !== id && m.to !== id)
+  await db.write()
 }
 
 export async function addMessage(msg: AgentMessage): Promise<void> {
-  const d = await db()
-  d.data.messages.push(msg)
-  await d.write()
+  const db = await getDb()
+  data(db).messages.push(msg)
+  await db.write()
 }
 
 export async function updateMessage(id: string, patch: Partial<AgentMessage>): Promise<void> {
-  const d = await db()
-  const idx = d.data.messages.findIndex((m) => m.id === id)
+  const db = await getDb()
+  const d = data(db)
+  const idx = d.messages.findIndex((m) => m.id === id)
   if (idx === -1) return
-  d.data.messages[idx] = { ...d.data.messages[idx], ...patch }
-  await d.write()
+  d.messages[idx] = { ...d.messages[idx], ...patch }
+  await db.write()
 }
 
 export async function listMessages(agentId?: string): Promise<AgentMessage[]> {
-  const d = await db()
-  if (!agentId) return d.data.messages
-  return d.data.messages.filter((m) => m.from === agentId || m.to === agentId)
+  const db = await getDb()
+  const msgs = data(db).messages
+  if (!agentId) return msgs
+  return msgs.filter((m) => m.from === agentId || m.to === agentId)
 }
 
 export async function findAgentByName(name: string): Promise<Agent | undefined> {
-  const d = await db()
-  return d.data.agents.find((a) => a.name === name)
+  const db = await getDb()
+  return data(db).agents.find((a) => a.name === name)
 }
