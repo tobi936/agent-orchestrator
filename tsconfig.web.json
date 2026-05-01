@@ -13,6 +13,11 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["src/shared/*"],
+      "@/*": ["src/renderer/src/*"]
+    },
     "types": ["vite/client"]
   },
   "include": [
