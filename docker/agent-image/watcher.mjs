@@ -133,6 +133,7 @@ async function processFile(file) {
   const fromLine = msg.from ? `From: ${msg.from}\n` : ''
   const prompt = `${fromLine}${subject}${msg.body}`
 
+  process.stdout.write('[TASK_START]\n')
   let reply
   try {
     reply = await runClaude(prompt)
@@ -187,6 +188,7 @@ async function tick() {
 
 async function main() {
   await ensureDirs()
+  process.stdout.write('[SESSION_START]\n')
   log(`starting watcher (id=${AGENT_ID}, model=${AGENT_MODEL})`)
   log(`claude version:`)
   await new Promise((resolve) => {
