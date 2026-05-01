@@ -58,6 +58,13 @@ export function AgentSidebar({ agents, selectedId, onSelect, onNew }: Props) {
             >
               <span className={`inline-block w-1.5 h-1.5 rounded-sm flex-shrink-0 ${statusDot[a.status]}`} />
               <span className="flex-1 truncate uppercase tracking-wide">{a.name}</span>
+              <span className={`text-[8px] flex-shrink-0 font-mono px-1 rounded-sm border ${
+                a.executionMode === 'remote'
+                  ? 'border-term-blue text-term-blue opacity-80'
+                  : 'border-term-border text-term-muted opacity-50'
+              }`}>
+                {a.executionMode === 'remote' ? '☁' : '◈'}
+              </span>
               <span className="text-[9px] opacity-60 flex-shrink-0 font-mono">{statusLabel[a.status]}</span>
             </button>
           </li>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { agentsApi } from '../lib/api'
-import type { Agent } from '@shared/types'
+import type { Agent, ExecutionMode } from '@shared/types'
 
 interface Props {
   open: boolean
@@ -14,10 +14,16 @@ const MODELS = [
   { value: 'opus', label: 'OPUS', desc: 'MAXIMUM POWER — COMPLEX ANALYSIS' },
 ]
 
+const EXECUTION_MODES: { value: ExecutionMode; label: string; desc: string }[] = [
+  { value: 'local', label: 'LOCAL', desc: 'DOCKER CONTAINER — FULL FILE SYSTEM ACCESS' },
+  { value: 'remote', label: 'REMOTE', desc: 'CLOUD (SUBSCRIPTION) — NO DOCKER REQUIRED' },
+]
+
 export function NewAgentDialog({ open, onClose, onCreated }: Props) {
   const [name, setName] = useState('')
   const [systemPrompt, setSystemPrompt] = useState('')
   const [model, setModel] = useState('sonnet')
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>('local')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -28,7 +34,7 @@ export function NewAgentDialog({ open, onClose, onCreated }: Props) {
     setSubmitting(true)
     setError(null)
     try {
-      const agent = await agentsApi.create({ name, systemPrompt, model })
+      const agent = await agentsApi.create({ name, systemPrompt, model, executionMode })
       onCreated(agent)
       setName('')
       setSystemPrompt('')
@@ -84,6 +90,35 @@ export function NewAgentDialog({ open, onClose, onCreated }: Props) {
                   value={m.value}
                   checked={model === m.value}
                   onChange={() => setModel(m.value)}
+                  className="mt-0.5 accent-[#00FF00]"
+                />
+                <div>
+                  <span className="text-[10px] text-term-text">{m.label}</span>
+                  <p className="text-[9px] text-term-muted mt-0.5">{m.desc}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <span className="text-[10px] text-term-text font-mono uppercase tracking-wider">[ EXECUTION MODE ]</span>
+          <div className="flex gap-2">
+            {EXECUTION_MODES.map((m) => (
+              <label
+                key={m.value}
+                className={`flex-1 flex items-start gap-3 p-2.5 rounded-sm border cursor-pointer transition-colors font-mono ${
+                  executionMode === m.value
+                    ? 'border-term-accent bg-term-accent/10'
+                    : 'border-term-border hover:border-term-muted'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="executionMode"
+                  value={m.value}
+                  checked={executionMode === m.value}
+                  onChange={() => setExecutionMode(m.value)}
                   className="mt-0.5 accent-[#00FF00]"
                 />
                 <div>

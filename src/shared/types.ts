@@ -7,11 +7,14 @@ export type AgentStatus =
   | 'stopped'
   | 'error'
 
+export type ExecutionMode = 'local' | 'remote'
+
 export interface Agent {
   id: string
   name: string
   systemPrompt: string
   model: string
+  executionMode: ExecutionMode
   createdAt: string
   containerId?: string
   status: AgentStatus
@@ -32,6 +35,7 @@ export interface NewAgentInput {
   name: string
   systemPrompt: string
   model?: string
+  executionMode?: ExecutionMode
 }
 
 export interface SendMessageInput {
