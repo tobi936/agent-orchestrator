@@ -15,6 +15,7 @@ export const agentsApi = {
   start: (id: string) => api.agents.start(id),
   stop: (id: string) => api.agents.stop(id),
   remove: (id: string) => api.agents.delete(id),
+  logHistory: (id: string) => api.agents.logHistory(id),
 }
 
 export const messagesApi = {

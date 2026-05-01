@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { useAgentLogs } from '../hooks/useAgentLogs'
+import { agentsApi } from '../lib/api'
 import type { LogLine } from '@shared/types'
 
 interface Props {
@@ -61,6 +62,16 @@ export function AgentConsole({ agentId }: Props) {
     term.writeln(`\x1b[2m── console for agent ${agentId} ──\x1b[0m`)
     termRef.current = term
     fitRef.current = fit
+
+    void agentsApi.logHistory(agentId).then((lines) => {
+      if (termRef.current !== term) return
+      for (const line of lines) {
+        for (const part of line.text.split(/\r?\n/)) {
+          if (!part && line.text.endsWith('\n')) continue
+          term.writeln(formatLine({ ...line, text: part }))
+        }
+      }
+    })
 
     const onResize = () => {
       try {

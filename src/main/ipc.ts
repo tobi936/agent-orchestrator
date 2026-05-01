@@ -9,7 +9,8 @@ import {
 } from './agent-store.js'
 import { DockerManager } from './docker-manager.js'
 import { MessageRouter } from './message-router.js'
-import type { LogLine, NewAgentInput, SendMessageInput } from '../shared/types.js'
+import * as logBuffer from './log-buffer.js'
+import type { Agent, LogLine, NewAgentInput, SendMessageInput } from '../shared/types.js'
 
 export function registerIpc(
   win: BrowserWindow,
@@ -20,7 +21,15 @@ export function registerIpc(
     if (!win.isDestroyed()) win.webContents.send(channel, payload)
   }
 
-  docker.on('log', (line: LogLine) => send('agent:log', line))
+  docker.on('log', (line: LogLine) => {
+    logBuffer.append(line)
+    send('agent:log', line)
+  })
+  docker.on('status', (payload: { agentId: string; status: Agent['status'] }) => {
+    void updateAgent(payload.agentId, { status: payload.status }).then((updated) => {
+      if (updated) send('agent:status', updated)
+    })
+  })
   router.on('message', (msg) => send('message:delivered', msg))
   router.on('routing-error', (err) => send('message:error', err))
 
@@ -34,6 +43,7 @@ export function registerIpc(
   ipcMain.handle('agents:list', async () => listAgents())
   ipcMain.handle('agents:get', async (_e, id: string) => getAgent(id))
   ipcMain.handle('agents:create', async (_e, input: NewAgentInput) => createAgent(input))
+  ipcMain.handle('agents:logHistory', async (_e, id: string) => logBuffer.history(id))
 
   ipcMain.handle('agents:start', async (_e, id: string) => {
     const agent = await getAgent(id)
@@ -74,6 +84,7 @@ export function registerIpc(
       }
     }
     await router.unwatchAgent(id)
+    logBuffer.clear(id)
     await deleteAgent(id)
     return { ok: true }
   })

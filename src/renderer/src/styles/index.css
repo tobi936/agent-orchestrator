@@ -1,8 +1,8 @@
+@import '@xterm/xterm/css/xterm.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import '@xterm/xterm/css/xterm.css';
 
 html,
 body,

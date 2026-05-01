@@ -126,6 +126,7 @@ export class DockerManager extends EventEmitter {
         text: '[container stream ended]',
       }
       this.emit('log', line)
+      this.emit('status', { agentId, status: 'stopped' })
     })
   }
 

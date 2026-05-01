@@ -27,11 +27,15 @@ export function useAgents() {
   }, [])
 
   useEffect(() => {
-    const off = events.onMessageDelivered(() => {
+    const offMsg = events.onMessageDelivered(() => {
       void refresh()
     })
+    const offStatus = events.onAgentStatus((updated) => {
+      setAgents((prev) => prev.map((a) => (a.id === updated.id ? updated : a)))
+    })
     return () => {
-      off()
+      offMsg()
+      offStatus()
     }
   }, [refresh])
 
