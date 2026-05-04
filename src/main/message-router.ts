@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { nanoid } from 'nanoid'
 import { EventEmitter } from 'node:events'
 import { addMessage, findAgentByName, getAgent, listAgents, updateMessage } from './agent-store.js'
-import { agentInbox, agentOutbox } from './paths.js'
+import { agentInbox, agentOutbox, LOCAL_USER_ID } from './paths.js'
 import type { AgentMessage, SendMessageInput } from '../shared/types.js'
 
 interface OutboxFile {
@@ -18,13 +18,14 @@ export class MessageRouter extends EventEmitter {
   private watchers = new Map<string, FSWatcher>()
 
   async start(): Promise<void> {
-    const agents = await listAgents()
-    for (const a of agents) this.watchAgent(a.id)
+    const agents = await listAgents(LOCAL_USER_ID)
+    for (const a of agents) this.watchAgent(LOCAL_USER_ID, a.id)
   }
 
-  watchAgent(agentId: string): void {
-    if (this.watchers.has(agentId)) return
-    const dir = agentOutbox(agentId)
+  watchAgent(userId: string, agentId: string): void {
+    const k = `${userId}:${agentId}`
+    if (this.watchers.has(k)) return
+    const dir = agentOutbox(userId, agentId)
     const watcher = chokidar.watch(dir, {
       ignoreInitial: true,
       persistent: true,
@@ -32,16 +33,17 @@ export class MessageRouter extends EventEmitter {
       awaitWriteFinish: { stabilityThreshold: 200, pollInterval: 50 },
     })
     watcher.on('add', (filePath) => {
-      void this.handleOutboxFile(agentId, filePath)
+      void this.handleOutboxFile(userId, agentId, filePath)
     })
-    this.watchers.set(agentId, watcher)
+    this.watchers.set(k, watcher)
   }
 
-  async unwatchAgent(agentId: string): Promise<void> {
-    const w = this.watchers.get(agentId)
+  async unwatchAgent(userId: string, agentId: string): Promise<void> {
+    const k = `${userId}:${agentId}`
+    const w = this.watchers.get(k)
     if (w) {
       await w.close()
-      this.watchers.delete(agentId)
+      this.watchers.delete(k)
     }
   }
 
@@ -50,8 +52,8 @@ export class MessageRouter extends EventEmitter {
     this.watchers.clear()
   }
 
-  async sendMessage(input: SendMessageInput): Promise<AgentMessage> {
-    const target = await getAgent(input.to)
+  async sendMessage(userId: string, input: SendMessageInput): Promise<AgentMessage> {
+    const target = await getAgent(userId, input.to)
     if (!target) throw new Error(`Target agent ${input.to} not found`)
     const id = nanoid(12)
     const msg: AgentMessage = {
@@ -63,27 +65,34 @@ export class MessageRouter extends EventEmitter {
       createdAt: new Date().toISOString(),
       status: 'queued',
     }
-    await addMessage(msg)
-    const inboxFile = join(agentInbox(input.to), `${msg.createdAt.replace(/[:.]/g, '-')}-${id}.json`)
+    await addMessage(userId, msg)
+    const inboxFile = join(
+      agentInbox(userId, input.to),
+      `${msg.createdAt.replace(/[:.]/g, '-')}-${id}.json`,
+    )
     await writeFile(inboxFile, JSON.stringify(msg, null, 2), 'utf8')
-    await updateMessage(id, { status: 'delivered' })
+    await updateMessage(userId, id, { status: 'delivered' })
     this.emit('message', { ...msg, status: 'delivered' })
     return msg
   }
 
-  private async handleOutboxFile(fromId: string, filePath: string): Promise<void> {
+  private async handleOutboxFile(
+    userId: string,
+    fromId: string,
+    filePath: string,
+  ): Promise<void> {
     if (!filePath.endsWith('.json')) return
     try {
       const raw = await readFile(filePath, 'utf8')
       const parsed = JSON.parse(raw) as OutboxFile
-      const target = await this.resolveTarget(parsed.to)
+      const target = await this.resolveTarget(userId, parsed.to)
       if (!target) {
         const errPath = filePath.replace(/\.json$/, '.error.json')
         await rename(filePath, errPath)
         this.emit('routing-error', { fromId, filePath, reason: `Target '${parsed.to}' not found` })
         return
       }
-      await this.sendMessage({
+      await this.sendMessage(userId, {
         from: fromId,
         to: target.id,
         subject: parsed.subject,
@@ -96,9 +105,9 @@ export class MessageRouter extends EventEmitter {
     }
   }
 
-  private async resolveTarget(idOrName: string) {
-    const byId = await getAgent(idOrName)
+  private async resolveTarget(userId: string, idOrName: string) {
+    const byId = await getAgent(userId, idOrName)
     if (byId) return byId
-    return findAgentByName(idOrName)
+    return findAgentByName(userId, idOrName)
   }
 }

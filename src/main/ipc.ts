@@ -11,7 +11,54 @@ import { hasClaudeAuth } from './auth-sync.js'
 import { DockerManager } from './docker-manager.js'
 import { MessageRouter } from './message-router.js'
 import * as logBuffer from './log-buffer.js'
-import type { Agent, LogLine, NewAgentInput, SendMessageInput } from '../shared/types.js'
+import { readServerConfig, writeServerConfig, clearServerToken } from './server-config.js'
+import { uploadCredentials } from './credential-uploader.js'
+import { LOCAL_USER_ID } from './paths.js'
+import type { Agent, LogLine, NewAgentInput, SendMessageInput, ServerConfig } from '../shared/types.js'
+
+async function remoteGet(path: string): Promise<unknown> {
+  const config = readServerConfig()
+  if (!config?.serverUrl || !config.token) throw new Error('no remote server configured')
+  const res = await fetch(`${config.serverUrl}${path}`, {
+    headers: { Authorization: `Bearer ${config.token}` },
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+async function remotePost(path: string, body: unknown): Promise<unknown> {
+  const config = readServerConfig()
+  if (!config?.serverUrl || !config.token) throw new Error('no remote server configured')
+  const res = await fetch(`${config.serverUrl}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.token}` },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+async function remoteDelete(path: string): Promise<unknown> {
+  const config = readServerConfig()
+  if (!config?.serverUrl || !config.token) throw new Error('no remote server configured')
+  const res = await fetch(`${config.serverUrl}${path}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${config.token}` },
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+function isRemote(): boolean {
+  const config = readServerConfig()
+  if (!config?.serverUrl || !config.token) return false
+  try {
+    const url = new URL(config.serverUrl)
+    return !(url.hostname === 'localhost' || url.hostname === '127.0.0.1')
+  } catch {
+    return false
+  }
+}
 
 export function registerIpc(
   win: BrowserWindow,
@@ -23,11 +70,11 @@ export function registerIpc(
   }
 
   docker.on('log', (line: LogLine) => {
-    logBuffer.append(line)
+    logBuffer.append(LOCAL_USER_ID, line)
     send('agent:log', line)
   })
   docker.on('status', (payload: { agentId: string; status: Agent['status'] }) => {
-    void updateAgent(payload.agentId, { status: payload.status }).then((updated) => {
+    void updateAgent(LOCAL_USER_ID, payload.agentId, { status: payload.status }).then((updated) => {
       if (updated) send('agent:status', updated)
     })
   })
@@ -37,72 +84,96 @@ export function registerIpc(
   ipcMain.handle('auth:status', () => hasClaudeAuth())
 
   ipcMain.handle('docker:status', async () => {
-    return {
-      reachable: await docker.ping(),
-      imageReady: await docker.ensureImage(),
-    }
+    if (isRemote()) return remoteGet('/api/docker/status')
+    return { reachable: await docker.ping(), imageReady: await docker.ensureImage() }
   })
 
-  ipcMain.handle('agents:list', async () => listAgents())
-  ipcMain.handle('agents:get', async (_e, id: string) => getAgent(id))
-  ipcMain.handle('agents:create', async (_e, input: NewAgentInput) => createAgent(input))
-  ipcMain.handle('agents:logHistory', async (_e, id: string) => logBuffer.history(id))
+  ipcMain.handle('agents:list', async () => {
+    if (isRemote()) return remoteGet('/api/agents')
+    return listAgents(LOCAL_USER_ID)
+  })
+
+  ipcMain.handle('agents:get', async (_e, id: string) => {
+    if (isRemote()) return remoteGet(`/api/agents/${id}`)
+    return getAgent(LOCAL_USER_ID, id)
+  })
+
+  ipcMain.handle('agents:create', async (_e, input: NewAgentInput) => {
+    if (isRemote()) return remotePost('/api/agents', input)
+    return createAgent(LOCAL_USER_ID, input)
+  })
+
+  ipcMain.handle('agents:logHistory', async (_e, id: string) => {
+    if (isRemote()) return remoteGet(`/api/agents/${id}/logs`)
+    return logBuffer.history(LOCAL_USER_ID, id)
+  })
 
   ipcMain.handle('agents:start', async (_e, id: string) => {
-    const agent = await getAgent(id)
+    if (isRemote()) return remotePost(`/api/agents/${id}/start`, {})
+    const agent = await getAgent(LOCAL_USER_ID, id)
     if (!agent) throw new Error(`Agent ${id} not found`)
-    await updateAgent(id, { status: 'starting', lastError: undefined })
-
+    await updateAgent(LOCAL_USER_ID, id, { status: 'starting', lastError: undefined })
     const emitLog = (text: string) => {
       const line: LogLine = { agentId: id, stream: 'system', ts: new Date().toISOString(), text }
-      logBuffer.append(line)
+      logBuffer.append(LOCAL_USER_ID, line)
       send('agent:log', line)
     }
-
     try {
       await docker.ensureDockerRunning(emitLog)
-      if (!(await docker.ensureImage())) {
-        await docker.buildAgentImage(emitLog)
-      }
-      const containerId = await docker.startAgent(
-        agent.id,
-        agent.name,
-        agent.systemPrompt,
-        agent.model,
-      )
-      router.watchAgent(agent.id)
-      const updated = await updateAgent(id, { containerId, status: 'running' })
-      return updated
+      if (!(await docker.ensureImage())) await docker.buildAgentImage(emitLog)
+      const containerId = await docker.startAgent(LOCAL_USER_ID, agent.id, agent.name, agent.systemPrompt, agent.model)
+      router.watchAgent(LOCAL_USER_ID, agent.id)
+      return updateAgent(LOCAL_USER_ID, id, { containerId, status: 'running' })
     } catch (err) {
-      await updateAgent(id, { status: 'error', lastError: String(err) })
+      await updateAgent(LOCAL_USER_ID, id, { status: 'error', lastError: String(err) })
       throw err
     }
   })
 
   ipcMain.handle('agents:stop', async (_e, id: string) => {
-    const agent = await getAgent(id)
+    if (isRemote()) return remotePost(`/api/agents/${id}/stop`, {})
+    const agent = await getAgent(LOCAL_USER_ID, id)
     if (!agent || !agent.containerId) return undefined
-    await updateAgent(id, { status: 'stopping' })
-    await docker.stopAgent(agent.containerId)
-    await router.unwatchAgent(id)
-    return updateAgent(id, { status: 'stopped' })
+    await updateAgent(LOCAL_USER_ID, id, { status: 'stopping' })
+    await docker.stopAgent(LOCAL_USER_ID, agent.containerId)
+    await router.unwatchAgent(LOCAL_USER_ID, id)
+    return updateAgent(LOCAL_USER_ID, id, { status: 'stopped' })
   })
 
   ipcMain.handle('agents:delete', async (_e, id: string) => {
-    const agent = await getAgent(id)
+    if (isRemote()) return remoteDelete(`/api/agents/${id}`)
+    const agent = await getAgent(LOCAL_USER_ID, id)
     if (agent?.containerId) {
-      try {
-        await docker.removeAgent(agent.containerId)
-      } catch {
-        // ignore – container might already be gone
-      }
+      try { await docker.removeAgent(LOCAL_USER_ID, agent.containerId) } catch { /* container may be gone */ }
     }
-    await router.unwatchAgent(id)
-    logBuffer.clear(id)
-    await deleteAgent(id)
+    await router.unwatchAgent(LOCAL_USER_ID, id)
+    logBuffer.clear(LOCAL_USER_ID, id)
+    await deleteAgent(LOCAL_USER_ID, id)
     return { ok: true }
   })
 
-  ipcMain.handle('messages:list', async (_e, agentId?: string) => listMessages(agentId))
-  ipcMain.handle('messages:send', async (_e, input: SendMessageInput) => router.sendMessage(input))
+  ipcMain.handle('messages:list', async (_e, agentId?: string) => {
+    if (isRemote()) return remoteGet(agentId ? `/api/messages?agentId=${agentId}` : '/api/messages')
+    return listMessages(LOCAL_USER_ID, agentId)
+  })
+
+  ipcMain.handle('messages:send', async (_e, input: SendMessageInput) => {
+    if (isRemote()) return remotePost('/api/messages', input)
+    return router.sendMessage(LOCAL_USER_ID, input)
+  })
+
+  ipcMain.handle('server:getConfig', (): ServerConfig | null => readServerConfig())
+
+  ipcMain.handle('server:connect', (_e, payload: { serverUrl: string; token: string; email?: string }) => {
+    writeServerConfig({
+      serverUrl: payload.serverUrl.replace(/\/$/, ''),
+      token: payload.token,
+      email: payload.email,
+    })
+    void uploadCredentials()
+  })
+
+  ipcMain.handle('server:logout', () => clearServerToken())
+
+  ipcMain.handle('auth:uploadCredentials', () => uploadCredentials())
 }

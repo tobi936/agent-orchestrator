@@ -1,10 +1,12 @@
 import Docker from 'dockerode'
+import { app } from 'electron'
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { EventEmitter } from 'node:events'
-import { getClaudeAuthBinds } from './auth-sync.js'
 import { agentInbox, agentOutbox, agentWorkspace } from './paths.js'
+import { extractCredentialsToDir } from './server/credentials-router.js'
 import type { LogLine } from '../shared/types.js'
 
 const DOCKER_DESKTOP_PATHS = [
@@ -14,10 +16,15 @@ const DOCKER_DESKTOP_PATHS = [
 
 export const AGENT_IMAGE = 'agent-orchestrator/claude-agent:latest'
 
+function credTmpDir(userId: string, agentId: string): string {
+  return join(tmpdir(), `ao-creds-${userId}-${agentId}`)
+}
+
 export class DockerManager extends EventEmitter {
   private docker: Docker
   private streams = new Map<string, NodeJS.ReadableStream>()
   private containerToAgent = new Map<string, string>()
+  private credDirs = new Map<string, string>()
 
   constructor() {
     super()
@@ -53,15 +60,7 @@ export class DockerManager extends EventEmitter {
   }
 
   async buildAgentImage(onLog: (text: string) => void): Promise<void> {
-    const contextDir = (() => {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const electron = require('electron') as { app: { getAppPath(): string } }
-        return join(electron.app.getAppPath(), 'docker', 'agent-image')
-      } catch {
-        return join(process.cwd(), 'docker', 'agent-image')
-      }
-    })()
+    const contextDir = join(app.getAppPath(), 'docker', 'agent-image')
     if (!existsSync(contextDir)) {
       throw new Error(`Docker-Build-Kontext nicht gefunden: ${contextDir}`)
     }
@@ -114,9 +113,45 @@ export class DockerManager extends EventEmitter {
     }
   }
 
-  async startAgent(agentId: string, name: string, systemPrompt: string, model: string): Promise<string> {
-    const containerName = `agent-orch-${agentId}`
+  async startAgent(
+    userId: string,
+    agentId: string,
+    name: string,
+    systemPrompt: string,
+    model: string,
+  ): Promise<string> {
+    const containerName = `agent-orch-${userId}-${agentId}`
     await this.removeIfExists(containerName)
+
+    const credDir = credTmpDir(userId, agentId)
+    mkdirSync(credDir, { recursive: true })
+    let credsExtracted = false
+    try {
+      credsExtracted = await extractCredentialsToDir(userId, credDir)
+    } catch {
+      // extractCredentialsToDir failed – proceed without credentials only for local userId
+    }
+
+    if (!credsExtracted && userId !== 'local') {
+      rmSync(credDir, { recursive: true, force: true })
+      throw new Error(
+        'Keine Claude-Credentials gefunden. Bitte öffne einmalig die Desktop-App und logge dich ein.',
+      )
+    }
+
+    const binds = [
+      `${agentInbox(userId, agentId)}:/data/inbox`,
+      `${agentOutbox(userId, agentId)}:/data/outbox`,
+      `${agentWorkspace(userId, agentId)}:/data/workspace`,
+    ]
+
+    if (credsExtracted) {
+      binds.push(`${credDir}:/home/agent/.claude`)
+      const claudeJson = join(credDir, '.claude.json')
+      if (existsSync(claudeJson)) {
+        binds.push(`${claudeJson}:/home/agent/.claude.json:ro`)
+      }
+    }
 
     const container = await this.docker.createContainer({
       Image: AGENT_IMAGE,
@@ -131,23 +166,19 @@ export class DockerManager extends EventEmitter {
       ],
       HostConfig: {
         AutoRemove: false,
-        Binds: [
-          `${agentInbox(agentId)}:/data/inbox`,
-          `${agentOutbox(agentId)}:/data/outbox`,
-          `${agentWorkspace(agentId)}:/data/workspace`,
-          ...getClaudeAuthBinds(),
-        ],
+        Binds: binds,
         NetworkMode: 'bridge',
       },
       WorkingDir: '/data/workspace',
     })
 
     await container.start()
-    this.attachLogs(agentId, container)
+    if (credsExtracted) this.credDirs.set(container.id, credDir)
+    this.attachLogs(userId, agentId, container)
     return container.id
   }
 
-  async stopAgent(containerId: string): Promise<void> {
+  async stopAgent(userId: string, containerId: string): Promise<void> {
     try {
       const c = this.docker.getContainer(containerId)
       await c.stop({ t: 5 })
@@ -155,20 +186,11 @@ export class DockerManager extends EventEmitter {
       const e = err as { statusCode?: number }
       if (e.statusCode !== 304 && e.statusCode !== 404) throw err
     } finally {
-      // Cleanup stream to prevent duplicate listeners on restart
-      const agentId = this.containerToAgent.get(containerId)
-      if (agentId) {
-        const stream = this.streams.get(agentId)
-        if (stream) {
-          stream.destroy()
-          this.streams.delete(agentId)
-        }
-        this.containerToAgent.delete(containerId)
-      }
+      this.cleanupContainer(containerId)
     }
   }
 
-  async removeAgent(containerId: string): Promise<void> {
+  async removeAgent(userId: string, containerId: string): Promise<void> {
     try {
       const c = this.docker.getContainer(containerId)
       await c.remove({ force: true })
@@ -176,15 +198,24 @@ export class DockerManager extends EventEmitter {
       const e = err as { statusCode?: number }
       if (e.statusCode !== 404) throw err
     } finally {
-      const agentId = this.containerToAgent.get(containerId)
-      if (agentId) {
-        const stream = this.streams.get(agentId)
-        if (stream) {
-          stream.destroy()
-          this.streams.delete(agentId)
-        }
-        this.containerToAgent.delete(containerId)
+      this.cleanupContainer(containerId)
+    }
+  }
+
+  private cleanupContainer(containerId: string): void {
+    const agentKey = this.containerToAgent.get(containerId)
+    if (agentKey) {
+      const stream = this.streams.get(agentKey)
+      if (stream) {
+        ;(stream as NodeJS.ReadableStream & { destroy?: () => void }).destroy?.()
+        this.streams.delete(agentKey)
       }
+      this.containerToAgent.delete(containerId)
+    }
+    const credDir = this.credDirs.get(containerId)
+    if (credDir) {
+      try { rmSync(credDir, { recursive: true, force: true }) } catch { /* ignore */ }
+      this.credDirs.delete(containerId)
     }
   }
 
@@ -197,7 +228,12 @@ export class DockerManager extends EventEmitter {
     }
   }
 
-  private async attachLogs(agentId: string, container: Docker.Container): Promise<void> {
+  private async attachLogs(
+    userId: string,
+    agentId: string,
+    container: Docker.Container,
+  ): Promise<void> {
+    const agentKey = `${userId}:${agentId}`
     const stream = await container.logs({
       follow: true,
       stdout: true,
@@ -205,8 +241,8 @@ export class DockerManager extends EventEmitter {
       tail: 0,
       timestamps: false,
     })
-    this.streams.set(agentId, stream as unknown as NodeJS.ReadableStream)
-    this.containerToAgent.set(container.id, agentId)
+    this.streams.set(agentKey, stream as unknown as NodeJS.ReadableStream)
+    this.containerToAgent.set(container.id, agentKey)
 
     const stdout = new EventEmitter()
     const stderr = new EventEmitter()
@@ -220,7 +256,7 @@ export class DockerManager extends EventEmitter {
     )
 
     stream.on('end', () => {
-      this.streams.delete(agentId)
+      this.streams.delete(agentKey)
       this.containerToAgent.delete(container.id)
       const line: LogLine = {
         agentId,

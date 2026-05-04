@@ -1,26 +1,46 @@
 import { app, BrowserWindow, Menu, shell } from 'electron'
 import { join } from 'node:path'
-import { syncClaudeAuth } from './auth-sync.js'
 import { DockerManager } from './docker-manager.js'
 import { MessageRouter } from './message-router.js'
 import { registerIpc } from './ipc.js'
-import { ensureRoot } from './paths.js'
+import { ensureRoot, LOCAL_USER_ID } from './paths.js'
 import { listAgents } from './agent-store.js'
+import { startHttpServer, wireManagers } from './server/http-server.js'
+import { readServerConfig, clearServerToken } from './server-config.js'
+import { uploadCredentials } from './credential-uploader.js'
 
 const isDev = !app.isPackaged
+const HTTP_PORT = Number(process.env.HTTP_PORT) || 3000
+
+async function validateStoredToken(): Promise<void> {
+  const config = readServerConfig()
+  if (!config?.token) return
+  try {
+    const res = await fetch(`${config.serverUrl}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${config.token}` },
+    })
+    if (!res.ok) clearServerToken()
+  } catch {
+    // network error – keep token, app will handle it
+  }
+}
 
 let mainWindow: BrowserWindow | null = null
 let docker: DockerManager | null = null
 let router: MessageRouter | null = null
 
 async function createWindow(): Promise<void> {
-  // Initialize backend before the renderer can make IPC calls
   ensureRoot()
-  syncClaudeAuth() // copy ~/.claude → ~/.agent-orchestrator/claude-auth/ for web server sharing
-  await listAgents()
+  await listAgents(LOCAL_USER_ID)
   docker = new DockerManager()
   router = new MessageRouter()
   await router.start()
+
+  await startHttpServer(HTTP_PORT)
+  wireManagers(docker, router)
+
+  await validateStoredToken()
+  void uploadCredentials()
 
   mainWindow = new BrowserWindow({
     width: 1400,

@@ -30,6 +30,18 @@ const api = {
     send: (input: SendMessageInput): Promise<AgentMessage> =>
       ipcRenderer.invoke('messages:send', input),
   },
+  server: {
+    getConfig: (): Promise<import('../shared/types.js').ServerConfig | null> =>
+      ipcRenderer.invoke('server:getConfig'),
+    connect: (payload: { serverUrl: string; token: string; email?: string }): Promise<void> =>
+      ipcRenderer.invoke('server:connect', payload),
+    logout: (): Promise<void> =>
+      ipcRenderer.invoke('server:logout'),
+  },
+  auth: {
+    uploadCredentials: (): Promise<void> =>
+      ipcRenderer.invoke('auth:uploadCredentials'),
+  },
   events: {
     onLog: (cb: (line: LogLine) => void) => {
       const handler = (_e: unknown, line: LogLine) => cb(line)
