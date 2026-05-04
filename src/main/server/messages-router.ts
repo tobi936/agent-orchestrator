@@ -16,12 +16,12 @@ export function createMessagesRouter(): Router {
 
   router.get('/', async (req, res) => {
     const agentId = req.query.agentId as string | undefined
-    res.json(await listMessages(agentId))
+    res.json(await listMessages(req.userId, agentId))
   })
 
   router.post('/', async (req, res) => {
     if (!msgRouter) { res.status(503).json({ error: 'router not available' }); return }
-    const msg = await msgRouter.sendMessage(req.body as SendMessageInput)
+    const msg = await msgRouter.sendMessage(req.userId, req.body as SendMessageInput)
     res.status(201).json(msg)
   })
 

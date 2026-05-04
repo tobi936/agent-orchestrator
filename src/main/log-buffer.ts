@@ -4,11 +4,16 @@ const MAX_LINES_PER_AGENT = 2000
 
 const buffers = new Map<string, LogLine[]>()
 
-export function append(line: LogLine): void {
-  let buf = buffers.get(line.agentId)
+function key(userId: string, agentId: string): string {
+  return `${userId}:${agentId}`
+}
+
+export function append(userId: string, line: LogLine): void {
+  const k = key(userId, line.agentId)
+  let buf = buffers.get(k)
   if (!buf) {
     buf = []
-    buffers.set(line.agentId, buf)
+    buffers.set(k, buf)
   }
   buf.push(line)
   if (buf.length > MAX_LINES_PER_AGENT) {
@@ -16,10 +21,10 @@ export function append(line: LogLine): void {
   }
 }
 
-export function history(agentId: string): LogLine[] {
-  return buffers.get(agentId)?.slice() ?? []
+export function history(userId: string, agentId: string): LogLine[] {
+  return buffers.get(key(userId, agentId))?.slice() ?? []
 }
 
-export function clear(agentId: string): void {
-  buffers.delete(agentId)
+export function clear(userId: string, agentId: string): void {
+  buffers.delete(key(userId, agentId))
 }

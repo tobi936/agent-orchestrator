@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { DockerManager } from './docker-manager.js'
 import { MessageRouter } from './message-router.js'
 import { registerIpc } from './ipc.js'
-import { ensureRoot } from './paths.js'
+import { ensureRoot, LOCAL_USER_ID } from './paths.js'
 import { listAgents } from './agent-store.js'
 import { startHttpServer, wireManagers } from './server/http-server.js'
 import { readServerConfig, clearServerToken } from './server-config.js'
@@ -31,7 +31,7 @@ let router: MessageRouter | null = null
 
 async function createWindow(): Promise<void> {
   ensureRoot()
-  await listAgents()
+  await listAgents(LOCAL_USER_ID)
   docker = new DockerManager()
   router = new MessageRouter()
   await router.start()

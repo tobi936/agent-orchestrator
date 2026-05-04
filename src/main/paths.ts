@@ -7,31 +7,58 @@ const root = app?.getPath
   : join(process.cwd(), 'data')
 
 export const dataRoot = root
-export const dbFile = join(root, 'db.json')
-export const agentsRoot = join(root, 'agents')
 
-export function agentDir(id: string): string {
-  return join(agentsRoot, id)
+// userId used for single-user / local Electron mode
+export const LOCAL_USER_ID = 'local'
+
+// Legacy paths (local mode aliases)
+export const dbFile = join(root, 'users', LOCAL_USER_ID, 'db.json')
+export const agentsRoot = join(root, 'users', LOCAL_USER_ID, 'agents')
+
+// User-scoped paths
+export function userDataRoot(userId: string): string {
+  return join(root, 'users', userId)
 }
 
-export function agentInbox(id: string): string {
-  return join(agentDir(id), 'inbox')
+export function userDbFile(userId: string): string {
+  return join(userDataRoot(userId), 'db.json')
 }
 
-export function agentOutbox(id: string): string {
-  return join(agentDir(id), 'outbox')
+export function userAgentsRoot(userId: string): string {
+  return join(userDataRoot(userId), 'agents')
 }
 
-export function agentWorkspace(id: string): string {
-  return join(agentDir(id), 'workspace')
+export function agentDir(userId: string, agentId: string): string {
+  return join(userAgentsRoot(userId), agentId)
 }
 
-export function ensureAgentDirs(id: string): void {
-  for (const dir of [agentDir(id), agentInbox(id), agentOutbox(id), agentWorkspace(id)]) {
+export function agentInbox(userId: string, agentId: string): string {
+  return join(agentDir(userId, agentId), 'inbox')
+}
+
+export function agentOutbox(userId: string, agentId: string): string {
+  return join(agentDir(userId, agentId), 'outbox')
+}
+
+export function agentWorkspace(userId: string, agentId: string): string {
+  return join(agentDir(userId, agentId), 'workspace')
+}
+
+export function ensureAgentDirs(userId: string, agentId: string): void {
+  for (const dir of [
+    agentDir(userId, agentId),
+    agentInbox(userId, agentId),
+    agentOutbox(userId, agentId),
+    agentWorkspace(userId, agentId),
+  ]) {
     mkdirSync(dir, { recursive: true })
   }
 }
 
+export function ensureUserRoot(userId: string): void {
+  mkdirSync(userAgentsRoot(userId), { recursive: true })
+}
+
 export function ensureRoot(): void {
-  mkdirSync(agentsRoot, { recursive: true })
+  ensureUserRoot(LOCAL_USER_ID)
 }
