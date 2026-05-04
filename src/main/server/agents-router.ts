@@ -51,7 +51,7 @@ export function createAgentsRouter(): Router {
     try {
       await docker.ensureDockerRunning(() => undefined)
       if (!(await docker.ensureImage())) await docker.buildAgentImage(() => undefined)
-      const containerId = await docker.startAgent(agent.id, agent.name, agent.systemPrompt, agent.model)
+      const containerId = await docker.startAgent(req.userId, agent.id, agent.name, agent.systemPrompt, agent.model)
       msgRouter!.watchAgent(req.userId, agent.id)
       res.json(await updateAgent(req.userId, agent.id, { containerId, status: 'running' }))
     } catch (err) {
@@ -65,7 +65,7 @@ export function createAgentsRouter(): Router {
     const agent = await getAgent(req.userId, req.params.id)
     if (!agent?.containerId) { res.status(404).json({ error: 'not found' }); return }
     await updateAgent(req.userId, agent.id, { status: 'stopping' })
-    await docker.stopAgent(agent.containerId)
+    await docker.stopAgent(req.userId, agent.containerId)
     await msgRouter!.unwatchAgent(req.userId, agent.id)
     res.json(await updateAgent(req.userId, agent.id, { status: 'stopped' }))
   })
@@ -74,7 +74,7 @@ export function createAgentsRouter(): Router {
     if (!docker || !msgRouter) { res.status(503).json({ error: 'docker not available' }); return }
     const agent = await getAgent(req.userId, req.params.id)
     if (agent?.containerId) {
-      try { await docker.removeAgent(agent.containerId) } catch { /* container may be gone */ }
+      try { await docker.removeAgent(req.userId, agent.containerId) } catch { /* container may be gone */ }
     }
     await msgRouter!.unwatchAgent(req.userId, req.params.id)
     logBuffer.clear(req.userId, req.params.id)

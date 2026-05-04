@@ -118,7 +118,7 @@ export function registerIpc(
     try {
       await docker.ensureDockerRunning(emitLog)
       if (!(await docker.ensureImage())) await docker.buildAgentImage(emitLog)
-      const containerId = await docker.startAgent(agent.id, agent.name, agent.systemPrompt, agent.model)
+      const containerId = await docker.startAgent(LOCAL_USER_ID, agent.id, agent.name, agent.systemPrompt, agent.model)
       router.watchAgent(LOCAL_USER_ID, agent.id)
       return updateAgent(LOCAL_USER_ID, id, { containerId, status: 'running' })
     } catch (err) {
@@ -132,7 +132,7 @@ export function registerIpc(
     const agent = await getAgent(LOCAL_USER_ID, id)
     if (!agent || !agent.containerId) return undefined
     await updateAgent(LOCAL_USER_ID, id, { status: 'stopping' })
-    await docker.stopAgent(agent.containerId)
+    await docker.stopAgent(LOCAL_USER_ID, agent.containerId)
     await router.unwatchAgent(LOCAL_USER_ID, id)
     return updateAgent(LOCAL_USER_ID, id, { status: 'stopped' })
   })
@@ -141,7 +141,7 @@ export function registerIpc(
     if (isRemote()) return remoteDelete(`/api/agents/${id}`)
     const agent = await getAgent(LOCAL_USER_ID, id)
     if (agent?.containerId) {
-      try { await docker.removeAgent(agent.containerId) } catch { /* container may be gone */ }
+      try { await docker.removeAgent(LOCAL_USER_ID, agent.containerId) } catch { /* container may be gone */ }
     }
     await router.unwatchAgent(LOCAL_USER_ID, id)
     logBuffer.clear(LOCAL_USER_ID, id)
