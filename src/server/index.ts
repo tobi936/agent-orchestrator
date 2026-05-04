@@ -172,7 +172,7 @@ app.post('/api/messages', async (req, res) => {
 })
 
 // Fallback: serve frontend for client-side routing
-app.get('*', (_req, res) => {
+app.get('/{*path}', (_req, res) => {
   res.sendFile(join(staticDir, 'index.html'))
 })
 
