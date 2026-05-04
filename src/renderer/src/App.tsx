@@ -8,7 +8,7 @@ import { useAgents } from './hooks/useAgents'
 import { useAuth } from './hooks/useAuth'
 
 export function App() {
-  const { state: authState, login, register } = useAuth()
+  const { state: authState, email, login, register } = useAuth()
   const { agents, loading, refresh } = useAgents()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
@@ -63,6 +63,7 @@ export function App() {
           selectedId={selectedId}
           onSelect={setSelectedId}
           onNew={() => setShowNew(true)}
+          email={email}
         />
         <main className="flex flex-1 min-w-0">
           {loading ? (

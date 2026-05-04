@@ -171,4 +171,6 @@ export function registerIpc(
   })
 
   ipcMain.handle('server:logout', () => clearServerToken())
+
+  ipcMain.handle('auth:uploadCredentials', () => uploadCredentials())
 }

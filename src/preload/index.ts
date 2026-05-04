@@ -35,6 +35,10 @@ const api = {
     logout: (): Promise<void> =>
       ipcRenderer.invoke('server:logout'),
   },
+  auth: {
+    uploadCredentials: (): Promise<void> =>
+      ipcRenderer.invoke('auth:uploadCredentials'),
+  },
   events: {
     onLog: (cb: (line: LogLine) => void) => {
       const handler = (_e: unknown, line: LogLine) => cb(line)
