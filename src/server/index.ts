@@ -15,6 +15,7 @@ import { MessageRouter } from '../main/message-router.js'
 import * as logBuffer from '../main/log-buffer.js'
 import { updateAgent } from '../main/agent-store.js'
 import { ensureRoot } from '../main/paths.js'
+import { hasClaudeAuth } from '../main/auth-sync.js'
 import type { Agent, AgentMessage, LogLine } from '../shared/types.js'
 
 const PORT = Number(process.env.PORT ?? 3000)
@@ -78,6 +79,11 @@ app.use(express.json())
 
 const staticDir = join(process.cwd(), 'web-dist')
 app.use(express.static(staticDir))
+
+// Claude auth status (unauthenticated – just a health indicator)
+app.get('/api/auth/status', (_req, res) => {
+  res.json(hasClaudeAuth())
+})
 
 // Public auth routes
 app.use('/api/auth', createAuthRouter())
