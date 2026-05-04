@@ -1,16 +1,15 @@
 import type { Agent, AgentMessage, LogLine, NewAgentInput, SendMessageInput } from '@shared/types'
-import { getToken } from './http'
+import { apiFetch, getToken } from './http'
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(path)
+  const res = await apiFetch(path)
   if (!res.ok) throw new Error(await res.text())
   return res.json() as Promise<T>
 }
 
 async function post<T>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(path, {
+  const res = await apiFetch(path, {
     method: 'POST',
-    headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) throw new Error(await res.text())
@@ -18,7 +17,7 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 }
 
 async function del<T>(path: string): Promise<T> {
-  const res = await fetch(path, { method: 'DELETE' })
+  const res = await apiFetch(path, { method: 'DELETE' })
   if (!res.ok) throw new Error(await res.text())
   return res.json() as Promise<T>
 }
