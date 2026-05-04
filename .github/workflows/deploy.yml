@@ -1,0 +1,23 @@
+name: Deploy to GCE
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.GCE_HOST }}
+          username: ${{ secrets.GCE_USER }}
+          key: ${{ secrets.GCE_SSH_KEY }}
+          script: |
+            cd ~/agent-orchestrator
+            git pull origin main
+            npm install
+            npm run build:web
+            pm2 restart agent-orchestrator
+            pm2 save
