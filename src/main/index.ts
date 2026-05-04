@@ -5,6 +5,7 @@ import { MessageRouter } from './message-router.js'
 import { registerIpc } from './ipc.js'
 import { ensureRoot } from './paths.js'
 import { listAgents } from './agent-store.js'
+import { startHttpServer } from './server/http-server.js'
 
 const isDev = !app.isPackaged
 
@@ -12,10 +13,13 @@ let mainWindow: BrowserWindow | null = null
 let docker: DockerManager | null = null
 let router: MessageRouter | null = null
 
+const HTTP_PORT = Number(process.env.HTTP_PORT) || 3000
+
 async function createWindow(): Promise<void> {
   // Initialize backend before the renderer can make IPC calls
   ensureRoot()
   await listAgents()
+  await startHttpServer(HTTP_PORT)
   docker = new DockerManager()
   router = new MessageRouter()
   await router.start()

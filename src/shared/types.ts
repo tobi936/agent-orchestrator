@@ -1,3 +1,9 @@
+export interface User {
+  id: string
+  email: string
+  createdAt: string
+}
+
 export type AgentStatus =
   | 'created'
   | 'starting'
