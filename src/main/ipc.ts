@@ -11,6 +11,7 @@ import { DockerManager } from './docker-manager.js'
 import { MessageRouter } from './message-router.js'
 import * as logBuffer from './log-buffer.js'
 import { readServerConfig, writeServerConfig, clearServerToken } from './server-config.js'
+import { uploadCredentials } from './credential-uploader.js'
 import type { Agent, LogLine, NewAgentInput, SendMessageInput, ServerConfig } from '../shared/types.js'
 
 async function remoteGet(path: string): Promise<unknown> {
@@ -165,7 +166,7 @@ export function registerIpc(
       token: payload.token,
       email: payload.email,
     })
-    // Credential auto-upload is triggered in Issue #8
+    void uploadCredentials()
   })
 
   ipcMain.handle('server:logout', () => clearServerToken())

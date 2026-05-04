@@ -7,6 +7,7 @@ import { ensureRoot } from './paths.js'
 import { listAgents } from './agent-store.js'
 import { startHttpServer, wireManagers } from './server/http-server.js'
 import { readServerConfig, clearServerToken } from './server-config.js'
+import { uploadCredentials } from './credential-uploader.js'
 
 const isDev = !app.isPackaged
 const HTTP_PORT = Number(process.env.HTTP_PORT) || 3000
@@ -39,6 +40,7 @@ async function createWindow(): Promise<void> {
   wireManagers(docker, router)
 
   await validateStoredToken()
+  void uploadCredentials()
 
   mainWindow = new BrowserWindow({
     width: 1400,
