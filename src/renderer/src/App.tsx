@@ -3,12 +3,38 @@ import { AgentSidebar } from './components/AgentSidebar'
 import { NewAgentDialog } from './components/NewAgentDialog'
 import { AgentDetail } from './components/AgentDetail'
 import { StatusBar } from './components/StatusBar'
+import { AuthScreen } from './components/AuthScreen'
 import { useAgents } from './hooks/useAgents'
+import { useAuth } from './hooks/useAuth'
 
 export function App() {
+  const { state: authState, login, register } = useAuth()
   const { agents, loading, refresh } = useAgents()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
+
+  if (authState === 'loading') {
+    return (
+      <div className="flex items-center justify-center h-full bg-term-bg font-mono text-term-muted text-xs">
+        …
+      </div>
+    )
+  }
+
+  if (authState === 'unauthenticated') {
+    return (
+      <AuthScreen
+        onLogin={async (email, password) => {
+          await login(email, password)
+          window.location.reload()
+        }}
+        onRegister={async (email, password, serverUrl) => {
+          await register(email, password, serverUrl)
+          window.location.reload()
+        }}
+      />
+    )
+  }
 
   useEffect(() => {
     if (!selectedId && agents.length > 0) {

@@ -1,4 +1,5 @@
 const TOKEN_KEY = 'ao_token'
+const SERVER_URL_KEY = 'ao_server_url'
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
@@ -12,17 +13,21 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY)
 }
 
+function baseUrl(): string {
+  return localStorage.getItem(SERVER_URL_KEY)?.replace(/\/$/, '') ?? ''
+}
+
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = getToken()
   const headers = new Headers(init.headers)
   headers.set('Content-Type', 'application/json')
   if (token) headers.set('Authorization', `Bearer ${token}`)
 
-  const res = await fetch(path, { ...init, headers })
+  const res = await fetch(`${baseUrl()}${path}`, { ...init, headers })
 
   if (res.status === 401) {
     clearToken()
-    window.location.hash = '#/login'
+    window.location.reload()
   }
 
   return res

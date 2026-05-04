@@ -1,4 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron'
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { dataRoot } from './paths.js'
 import {
   createAgent,
   deleteAgent,
@@ -102,4 +105,9 @@ export function registerIpc(
 
   ipcMain.handle('messages:list', async (_e, agentId?: string) => listMessages(agentId))
   ipcMain.handle('messages:send', async (_e, input: SendMessageInput) => router.sendMessage(input))
+
+  ipcMain.handle('server:connect', (_e, url: string, token: string) => {
+    const config = { serverUrl: url.replace(/\/$/, ''), token }
+    writeFileSync(join(dataRoot, 'server-config.json'), JSON.stringify(config, null, 2))
+  })
 }

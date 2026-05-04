@@ -27,6 +27,10 @@ const api = {
     send: (input: SendMessageInput): Promise<AgentMessage> =>
       ipcRenderer.invoke('messages:send', input),
   },
+  server: {
+    connect: (url: string, token: string): Promise<void> =>
+      ipcRenderer.invoke('server:connect', url, token),
+  },
   events: {
     onLog: (cb: (line: LogLine) => void) => {
       const handler = (_e: unknown, line: LogLine) => cb(line)
