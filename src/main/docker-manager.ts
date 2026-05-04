@@ -135,7 +135,7 @@ export class DockerManager extends EventEmitter {
     if (!credsExtracted && userId !== 'local') {
       rmSync(credDir, { recursive: true, force: true })
       throw new Error(
-        'Keine Claude-Credentials gefunden. Bitte öffne einmalig die Desktop-App und logge dich ein.',
+        'Keine Claude-Credentials gefunden. Bitte lade deine ~/.claude-Dateien in den Einstellungen hoch.',
       )
     }
 
