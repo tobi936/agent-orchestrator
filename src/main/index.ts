@@ -5,24 +5,40 @@ import { MessageRouter } from './message-router.js'
 import { registerIpc } from './ipc.js'
 import { ensureRoot } from './paths.js'
 import { listAgents } from './agent-store.js'
-import { startHttpServer } from './server/http-server.js'
+import { startHttpServer, wireManagers } from './server/http-server.js'
+import { readServerConfig, clearServerToken } from './server-config.js'
 
 const isDev = !app.isPackaged
+const HTTP_PORT = Number(process.env.HTTP_PORT) || 3000
+
+async function validateStoredToken(): Promise<void> {
+  const config = readServerConfig()
+  if (!config?.token) return
+  try {
+    const res = await fetch(`${config.serverUrl}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${config.token}` },
+    })
+    if (!res.ok) clearServerToken()
+  } catch {
+    // network error – keep token, app will handle it
+  }
+}
 
 let mainWindow: BrowserWindow | null = null
 let docker: DockerManager | null = null
 let router: MessageRouter | null = null
 
-const HTTP_PORT = Number(process.env.HTTP_PORT) || 3000
-
 async function createWindow(): Promise<void> {
-  // Initialize backend before the renderer can make IPC calls
   ensureRoot()
   await listAgents()
-  await startHttpServer(HTTP_PORT)
   docker = new DockerManager()
   router = new MessageRouter()
   await router.start()
+
+  await startHttpServer(HTTP_PORT)
+  wireManagers(docker, router)
+
+  await validateStoredToken()
 
   mainWindow = new BrowserWindow({
     width: 1400,

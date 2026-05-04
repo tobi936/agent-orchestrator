@@ -4,6 +4,12 @@ export interface User {
   createdAt: string
 }
 
+export interface ServerConfig {
+  serverUrl: string
+  token?: string
+  email?: string
+}
+
 export type AgentStatus =
   | 'created'
   | 'starting'

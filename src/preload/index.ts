@@ -28,8 +28,12 @@ const api = {
       ipcRenderer.invoke('messages:send', input),
   },
   server: {
-    connect: (url: string, token: string): Promise<void> =>
-      ipcRenderer.invoke('server:connect', url, token),
+    getConfig: (): Promise<import('../shared/types.js').ServerConfig | null> =>
+      ipcRenderer.invoke('server:getConfig'),
+    connect: (payload: { serverUrl: string; token: string; email?: string }): Promise<void> =>
+      ipcRenderer.invoke('server:connect', payload),
+    logout: (): Promise<void> =>
+      ipcRenderer.invoke('server:logout'),
   },
   events: {
     onLog: (cb: (line: LogLine) => void) => {
