@@ -3,8 +3,8 @@ import { readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { nanoid } from 'nanoid'
 import { EventEmitter } from 'node:events'
-import { addMessage, findAgentByName, getAgent, listAgents, updateMessage } from './agent-store.js'
-import { agentInbox, agentOutbox, LOCAL_USER_ID } from './paths.js'
+import { addMessage, findAgentByName, getAgent, updateMessage } from './agent-store.js'
+import { agentInbox, agentOutbox } from './paths.js'
 import type { AgentMessage, SendMessageInput } from '../shared/types.js'
 
 interface OutboxFile {
@@ -18,8 +18,7 @@ export class MessageRouter extends EventEmitter {
   private watchers = new Map<string, FSWatcher>()
 
   async start(): Promise<void> {
-    const agents = await listAgents(LOCAL_USER_ID)
-    for (const a of agents) this.watchAgent(LOCAL_USER_ID, a.id)
+    // Agents are watched explicitly via watchAgent when started via the API.
   }
 
   watchAgent(userId: string, agentId: string): void {
@@ -72,7 +71,7 @@ export class MessageRouter extends EventEmitter {
     )
     await writeFile(inboxFile, JSON.stringify(msg, null, 2), 'utf8')
     await updateMessage(userId, id, { status: 'delivered' })
-    this.emit('message', { ...msg, status: 'delivered' })
+    this.emit('message', { userId, message: { ...msg, status: 'delivered' } })
     return msg
   }
 
@@ -89,7 +88,7 @@ export class MessageRouter extends EventEmitter {
       if (!target) {
         const errPath = filePath.replace(/\.json$/, '.error.json')
         await rename(filePath, errPath)
-        this.emit('routing-error', { fromId, filePath, reason: `Target '${parsed.to}' not found` })
+        this.emit('routing-error', { userId, fromId, filePath, reason: `Target '${parsed.to}' not found` })
         return
       }
       await this.sendMessage(userId, {
@@ -101,7 +100,7 @@ export class MessageRouter extends EventEmitter {
       const processedPath = filePath.replace(/\.json$/, '.sent.json')
       await rename(filePath, processedPath)
     } catch (err) {
-      this.emit('routing-error', { fromId, filePath, reason: String(err) })
+      this.emit('routing-error', { userId, fromId, filePath, reason: String(err) })
     }
   }
 

@@ -1,24 +1,21 @@
 import { useState } from 'react'
-import { getServerUrl } from '../hooks/useAuth'
 
 interface Props {
   onLogin: (email: string, password: string) => Promise<void>
-  onRegister: (email: string, password: string, serverUrl: string) => Promise<void>
+  onRegister: (email: string, password: string) => Promise<void>
 }
 
 type Tab = 'login' | 'register'
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 export function AuthScreen({ onLogin, onRegister }: Props) {
-  const isElectron = 'api' in window
   const [tab, setTab] = useState<Tab>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
-  const [serverUrl, setServerUrl] = useState(getServerUrl())
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-
-  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -28,12 +25,10 @@ export function AuthScreen({ onLogin, onRegister }: Props) {
       setError('Bitte alle Felder ausfüllen')
       return
     }
-
     if (!EMAIL_RE.test(email)) {
       setError('Ungültige E-Mail-Adresse')
       return
     }
-
     if (tab === 'register') {
       if (password.length < 8) {
         setError('Passwort muss mindestens 8 Zeichen haben')
@@ -43,10 +38,6 @@ export function AuthScreen({ onLogin, onRegister }: Props) {
         setError('Passwörter stimmen nicht überein')
         return
       }
-      if (isElectron && !serverUrl) {
-        setError('Server-URL ist erforderlich')
-        return
-      }
     }
 
     setLoading(true)
@@ -54,7 +45,7 @@ export function AuthScreen({ onLogin, onRegister }: Props) {
       if (tab === 'login') {
         await onLogin(email, password)
       } else {
-        await onRegister(email, password, serverUrl)
+        await onRegister(email, password)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler')
@@ -88,29 +79,16 @@ export function AuthScreen({ onLogin, onRegister }: Props) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3" noValidate>
-          <Field label="Email:" type="email" value={email} onChange={setEmail} required />
-          <Field label="Passwort:" type="password" value={password} onChange={setPassword} required />
+          <Field label="Email:" type="email" value={email} onChange={setEmail} />
+          <Field label="Passwort:" type="password" value={password} onChange={setPassword} />
 
           {tab === 'register' && (
-            <>
-              <Field
-                label="Passwort wdh.:"
-                type="password"
-                value={passwordConfirm}
-                onChange={setPasswordConfirm}
-                required
-              />
-              {isElectron && (
-                <Field
-                  label="Server-URL:"
-                  type="url"
-                  value={serverUrl}
-                  onChange={setServerUrl}
-                  placeholder="https://..."
-                  required
-                />
-              )}
-            </>
+            <Field
+              label="Passwort wdh.:"
+              type="password"
+              value={passwordConfirm}
+              onChange={setPasswordConfirm}
+            />
           )}
 
           <button
@@ -135,15 +113,11 @@ function Field({
   type,
   value,
   onChange,
-  placeholder,
-  required,
 }: {
   label: string
   type: string
   value: string
   onChange: (v: string) => void
-  placeholder?: string
-  required?: boolean
 }) {
   return (
     <div className="flex items-center gap-2 text-[11px]">
@@ -152,8 +126,6 @@ function Field({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        required={required}
         className="flex-1 bg-term-bg border border-term-border px-2 py-1 text-term-text placeholder:text-term-muted focus:outline-none focus:border-term-accent"
       />
     </div>

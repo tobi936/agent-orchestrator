@@ -1,5 +1,4 @@
 import Docker from 'dockerode'
-import { app } from 'electron'
 import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
@@ -25,6 +24,7 @@ export class DockerManager extends EventEmitter {
   private streams = new Map<string, NodeJS.ReadableStream>()
   private containerToAgent = new Map<string, string>()
   private credDirs = new Map<string, string>()
+  private agentToUser = new Map<string, string>()
 
   constructor() {
     super()
@@ -60,7 +60,7 @@ export class DockerManager extends EventEmitter {
   }
 
   async buildAgentImage(onLog: (text: string) => void): Promise<void> {
-    const contextDir = join(app.getAppPath(), 'docker', 'agent-image')
+    const contextDir = join(process.cwd(), 'docker', 'agent-image')
     if (!existsSync(contextDir)) {
       throw new Error(`Docker-Build-Kontext nicht gefunden: ${contextDir}`)
     }
@@ -173,6 +173,7 @@ export class DockerManager extends EventEmitter {
     })
 
     await container.start()
+    this.agentToUser.set(agentId, userId)
     if (credsExtracted) this.credDirs.set(container.id, credDir)
     this.attachLogs(userId, agentId, container)
     return container.id
@@ -264,8 +265,9 @@ export class DockerManager extends EventEmitter {
         ts: new Date().toISOString(),
         text: '[container stream ended]',
       }
-      this.emit('log', line)
-      this.emit('status', { agentId, status: 'stopped' })
+      this.emit('log', { userId, line })
+      this.emit('status', { userId, agentId, status: 'stopped' })
+      this.agentToUser.delete(agentId)
     })
   }
 
@@ -277,7 +279,7 @@ export class DockerManager extends EventEmitter {
       ts: new Date().toISOString(),
       text,
     }
-    this.emit('log', line)
+    this.emit('log', { userId: this.agentToUser.get(agentId) ?? 'local', line })
   }
 
   async inspectStatus(containerId: string): Promise<'running' | 'stopped' | 'unknown'> {

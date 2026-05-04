@@ -24,14 +24,8 @@ export function App() {
   if (authState === 'unauthenticated') {
     return (
       <AuthScreen
-        onLogin={async (email, password) => {
-          await login(email, password)
-          window.location.reload()
-        }}
-        onRegister={async (email, password, serverUrl) => {
-          await register(email, password, serverUrl)
-          window.location.reload()
-        }}
+        onLogin={login}
+        onRegister={register}
       />
     )
   }

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { apiFetch, clearToken } from '../lib/http'
-import { getServerUrl } from '../hooks/useAuth'
 
 interface CredStatus {
   hasCredentials: boolean
@@ -11,8 +10,6 @@ interface Props {
   email: string | null
   onClose: () => void
 }
-
-const isElectron = typeof window !== 'undefined' && 'api' in window
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -27,8 +24,6 @@ function timeAgo(iso: string): string {
 
 export function SettingsModal({ email, onClose }: Props) {
   const [credStatus, setCredStatus] = useState<CredStatus | null>(null)
-  const [syncing, setSyncing] = useState(false)
-  const serverUrl = getServerUrl()
 
   useEffect(() => {
     apiFetch('/api/auth/credentials/status')
@@ -37,26 +32,9 @@ export function SettingsModal({ email, onClose }: Props) {
       .catch(() => setCredStatus({ hasCredentials: false }))
   }, [])
 
-  async function handleLogout() {
+  function handleLogout() {
     clearToken()
-    if (isElectron) {
-      try { await window.api.server.logout() } catch { /* ignore */ }
-    }
     window.location.reload()
-  }
-
-  async function handleSync() {
-    if (!isElectron) return
-    setSyncing(true)
-    try {
-      await (window.api as unknown as { auth: { uploadCredentials: () => Promise<void> } }).auth.uploadCredentials()
-      const res = await apiFetch('/api/auth/credentials/status')
-      setCredStatus(await res.json() as CredStatus)
-    } catch {
-      // silent
-    } finally {
-      setSyncing(false)
-    }
   }
 
   return (
@@ -71,11 +49,9 @@ export function SettingsModal({ email, onClose }: Props) {
         </div>
 
         <div className="p-4 space-y-5">
-          {/* Account */}
           <section className="space-y-2">
             <p className="text-[9px] uppercase tracking-widest text-term-muted border-b border-term-border pb-1">ACCOUNT</p>
             <Row label="Email:" value={email ?? '–'} />
-            {serverUrl && <Row label="Server:" value={serverUrl} />}
             <button
               onClick={handleLogout}
               className="w-full py-1.5 text-[11px] uppercase tracking-wider border border-term-err text-term-err hover:bg-term-err hover:text-black transition-colors"
@@ -84,7 +60,6 @@ export function SettingsModal({ email, onClose }: Props) {
             </button>
           </section>
 
-          {/* Claude Auth */}
           <section className="space-y-2">
             <p className="text-[9px] uppercase tracking-widest text-term-muted border-b border-term-border pb-1">CLAUDE AUTH</p>
             {credStatus === null ? (
@@ -97,24 +72,7 @@ export function SettingsModal({ email, onClose }: Props) {
                 )}
               </>
             ) : (
-              <>
-                <Row label="Status:" value="✗ FEHLEND" valueClass="text-red-400" />
-                {!isElectron && (
-                  <p className="text-term-muted text-[10px] leading-relaxed border border-term-border p-2 mt-1">
-                    ⚠ Öffne einmalig die Desktop-App und logge dich ein, um deine Claude-Credentials zu synchronisieren.
-                  </p>
-                )}
-              </>
-            )}
-
-            {isElectron && (
-              <button
-                onClick={handleSync}
-                disabled={syncing}
-                className="w-full py-1.5 text-[11px] uppercase tracking-wider border border-term-accent text-term-accent hover:bg-term-accent hover:text-black transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {syncing ? 'Synchronisiere…' : 'Jetzt synchronisieren'}
-              </button>
+              <Row label="Status:" value="✗ FEHLEND" valueClass="text-red-400" />
             )}
           </section>
         </div>
