@@ -9,6 +9,7 @@ interface Props {
 type Tab = 'login' | 'register'
 
 export function AuthScreen({ onLogin, onRegister }: Props) {
+  const isElectron = 'api' in window
   const [tab, setTab] = useState<Tab>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -42,7 +43,7 @@ export function AuthScreen({ onLogin, onRegister }: Props) {
         setError('Passwörter stimmen nicht überein')
         return
       }
-      if (!serverUrl) {
+      if (isElectron && !serverUrl) {
         setError('Server-URL ist erforderlich')
         return
       }
@@ -99,14 +100,16 @@ export function AuthScreen({ onLogin, onRegister }: Props) {
                 onChange={setPasswordConfirm}
                 required
               />
-              <Field
-                label="Server-URL:"
-                type="url"
-                value={serverUrl}
-                onChange={setServerUrl}
-                placeholder="https://..."
-                required
-              />
+              {isElectron && (
+                <Field
+                  label="Server-URL:"
+                  type="url"
+                  value={serverUrl}
+                  onChange={setServerUrl}
+                  placeholder="https://..."
+                  required
+                />
+              )}
             </>
           )}
 

@@ -4,7 +4,9 @@ import { getToken, setToken, clearToken, apiFetch } from '../lib/http'
 const SERVER_URL_KEY = 'ao_server_url'
 
 export function getServerUrl(): string {
-  return localStorage.getItem(SERVER_URL_KEY) ?? ''
+  const stored = localStorage.getItem(SERVER_URL_KEY)
+  if (stored) return stored
+  return 'api' in window ? '' : window.location.origin
 }
 
 export function setServerUrl(url: string): void {

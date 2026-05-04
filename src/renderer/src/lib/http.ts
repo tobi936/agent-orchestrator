@@ -13,8 +13,14 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY)
 }
 
+function isElectron(): boolean {
+  return 'api' in window
+}
+
 function baseUrl(): string {
-  return localStorage.getItem(SERVER_URL_KEY)?.replace(/\/$/, '') ?? ''
+  const stored = localStorage.getItem(SERVER_URL_KEY)?.replace(/\/$/, '')
+  if (stored) return stored
+  return isElectron() ? '' : window.location.origin
 }
 
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
