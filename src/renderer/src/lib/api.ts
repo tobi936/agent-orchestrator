@@ -4,6 +4,10 @@ import { httpApi } from './http-api'
 // In Electron the preload script injects window.api; in browser we use HTTP/SSE
 const backend = typeof window !== 'undefined' && window.api ? window.api : httpApi
 
+export const authApi = {
+  status: () => backend.auth.status(),
+}
+
 export const agentsApi = {
   list: () => backend.agents.list(),
   get: (id: string) => backend.agents.get(id),

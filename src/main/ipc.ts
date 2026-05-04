@@ -7,6 +7,7 @@ import {
   listMessages,
   updateAgent,
 } from './agent-store.js'
+import { hasClaudeAuth } from './auth-sync.js'
 import { DockerManager } from './docker-manager.js'
 import { MessageRouter } from './message-router.js'
 import * as logBuffer from './log-buffer.js'
@@ -32,6 +33,8 @@ export function registerIpc(
   })
   router.on('message', (msg) => send('message:delivered', msg))
   router.on('routing-error', (err) => send('message:error', err))
+
+  ipcMain.handle('auth:status', () => hasClaudeAuth())
 
   ipcMain.handle('docker:status', async () => {
     return {

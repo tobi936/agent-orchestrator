@@ -9,6 +9,7 @@ import {
   listMessages,
   updateAgent,
 } from '../main/agent-store.js'
+import { hasClaudeAuth } from '../main/auth-sync.js'
 import { DockerManager } from '../main/docker-manager.js'
 import * as logBuffer from '../main/log-buffer.js'
 import { MessageRouter } from '../main/message-router.js'
@@ -68,6 +69,11 @@ app.get('/api/events', (req: Request, res: Response) => {
   res.write(':\n\n') // keep-alive comment
   sseClients.add(res)
   req.on('close', () => sseClients.delete(res))
+})
+
+// ── Auth ──────────────────────────────────────────────────────
+app.get('/api/auth/status', (_req, res) => {
+  res.json(hasClaudeAuth())
 })
 
 // ── Docker ────────────────────────────────────────────────────

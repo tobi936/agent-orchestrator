@@ -8,6 +8,9 @@ import type {
 } from '../shared/types.js'
 
 const api = {
+  auth: {
+    status: (): Promise<boolean> => ipcRenderer.invoke('auth:status'),
+  },
   docker: {
     status: (): Promise<{ reachable: boolean; imageReady: boolean }> =>
       ipcRenderer.invoke('docker:status'),

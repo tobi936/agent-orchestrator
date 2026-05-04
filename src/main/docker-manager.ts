@@ -1,9 +1,9 @@
 import Docker from 'dockerode'
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { EventEmitter } from 'node:events'
+import { getClaudeAuthBinds } from './auth-sync.js'
 import { agentInbox, agentOutbox, agentWorkspace } from './paths.js'
 import type { LogLine } from '../shared/types.js'
 
@@ -135,8 +135,7 @@ export class DockerManager extends EventEmitter {
           `${agentInbox(agentId)}:/data/inbox`,
           `${agentOutbox(agentId)}:/data/outbox`,
           `${agentWorkspace(agentId)}:/data/workspace`,
-          `${homedir()}/.claude:/home/agent/.claude`,
-          `${homedir()}/.claude.json:/home/agent/.claude.json:ro`,
+          ...getClaudeAuthBinds(),
         ],
         NetworkMode: 'bridge',
       },

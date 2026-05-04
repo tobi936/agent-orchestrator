@@ -51,6 +51,9 @@ class SseBus {
 const sse = new SseBus()
 
 export const httpApi = {
+  auth: {
+    status: () => get<boolean>('/api/auth/status'),
+  },
   docker: {
     status: () => get<{ reachable: boolean; imageReady: boolean }>('/api/docker/status'),
   },

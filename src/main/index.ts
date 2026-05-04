@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu, shell } from 'electron'
 import { join } from 'node:path'
+import { syncClaudeAuth } from './auth-sync.js'
 import { DockerManager } from './docker-manager.js'
 import { MessageRouter } from './message-router.js'
 import { registerIpc } from './ipc.js'
@@ -15,6 +16,7 @@ let router: MessageRouter | null = null
 async function createWindow(): Promise<void> {
   // Initialize backend before the renderer can make IPC calls
   ensureRoot()
+  syncClaudeAuth() // copy ~/.claude → ~/.agent-orchestrator/claude-auth/ for web server sharing
   await listAgents()
   docker = new DockerManager()
   router = new MessageRouter()
