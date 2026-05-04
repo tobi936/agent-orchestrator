@@ -1,5 +1,4 @@
 import Docker from 'dockerode'
-import { app } from 'electron'
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -54,7 +53,15 @@ export class DockerManager extends EventEmitter {
   }
 
   async buildAgentImage(onLog: (text: string) => void): Promise<void> {
-    const contextDir = join(app.getAppPath(), 'docker', 'agent-image')
+    const contextDir = (() => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const electron = require('electron') as { app: { getAppPath(): string } }
+        return join(electron.app.getAppPath(), 'docker', 'agent-image')
+      } catch {
+        return join(process.cwd(), 'docker', 'agent-image')
+      }
+    })()
     if (!existsSync(contextDir)) {
       throw new Error(`Docker-Build-Kontext nicht gefunden: ${contextDir}`)
     }

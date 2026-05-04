@@ -17,23 +17,29 @@
     "package": "electron-vite build && electron-builder",
     "package:linux": "electron-vite build && electron-builder --linux",
     "package:mac": "electron-vite build && electron-builder --mac",
-    "package:win": "electron-vite build && electron-builder --win"
+    "package:win": "electron-vite build && electron-builder --win",
+    "build:web": "vite build --config vite.config.ts",
+    "server": "tsx src/server/index.ts",
+    "dev:web": "concurrently \"tsx src/server/index.ts\" \"vite --config vite.config.ts\""
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
     "chokidar": "^4.0.3",
     "dockerode": "^4.0.7",
+    "express": "^4.21.2",
     "lowdb": "^3.0.0",
     "nanoid": "^3.3.12"
   },
   "devDependencies": {
     "@types/dockerode": "^3.3.42",
+    "@types/express": "^5.0.1",
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.2",
     "electron": "^33.3.1",
     "electron-builder": "^25.1.8",
     "electron-vite": "^3.0.0",
@@ -41,6 +47,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vite": "^6.0.7"
   },
