@@ -34,7 +34,7 @@ export function StatusBar() {
           {authOk === null ? '…' : authOk ? 'OK' : 'MISSING'}
         </span>
         {authOk === false && (
-          <span className="text-term-warn ml-1">— start desktop app once to sync</span>
+          <span className="text-term-warn ml-1">— ~/.claude fehlt auf dem Server</span>
         )}
       </span>
       <span className="flex items-center gap-1.5">

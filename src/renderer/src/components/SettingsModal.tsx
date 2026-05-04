@@ -11,6 +11,8 @@ interface Props {
   onClose: () => void
 }
 
+type OS = 'mac' | 'linux' | 'windows'
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(diff / 60_000)
@@ -22,8 +24,19 @@ function timeAgo(iso: string): string {
   return `vor ${days} Tag${days === 1 ? '' : 'en'}`
 }
 
+function exportCommand(os: OS, host: string): string {
+  if (os === 'windows') {
+    return `scp -r "$env:USERPROFILE\\.claude" USER@${host}:~/ ;\nscp "$env:USERPROFILE\\.claude.json" USER@${host}:~/`
+  }
+  return `scp -r ~/.claude USER@${host}:~/ &&\nscp ~/.claude.json USER@${host}:~/`
+}
+
 export function SettingsModal({ email, onClose }: Props) {
   const [credStatus, setCredStatus] = useState<CredStatus | null>(null)
+  const [os, setOs] = useState<OS>('mac')
+  const [copied, setCopied] = useState(false)
+
+  const host = window.location.hostname
 
   useEffect(() => {
     apiFetch('/api/auth/credentials/status')
@@ -37,18 +50,25 @@ export function SettingsModal({ email, onClose }: Props) {
     window.location.reload()
   }
 
+  function handleCopy() {
+    void navigator.clipboard.writeText(exportCommand(os, host).replace(/\\\n/g, ' \\\n'))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-[360px] bg-term-panel border border-term-border font-mono text-xs">
+      <div className="w-[420px] bg-term-panel border border-term-border font-mono text-xs">
         <div className="flex items-center justify-between px-4 py-2 border-b border-term-border">
           <span className="text-[10px] uppercase tracking-widest text-term-text">EINSTELLUNGEN</span>
           <button onClick={onClose} className="text-term-muted hover:text-term-text transition-colors text-sm">✕</button>
         </div>
 
         <div className="p-4 space-y-5">
+          {/* Account */}
           <section className="space-y-2">
             <p className="text-[9px] uppercase tracking-widest text-term-muted border-b border-term-border pb-1">ACCOUNT</p>
             <Row label="Email:" value={email ?? '–'} />
@@ -60,6 +80,7 @@ export function SettingsModal({ email, onClose }: Props) {
             </button>
           </section>
 
+          {/* Claude Auth */}
           <section className="space-y-2">
             <p className="text-[9px] uppercase tracking-widest text-term-muted border-b border-term-border pb-1">CLAUDE AUTH</p>
             {credStatus === null ? (
@@ -74,6 +95,42 @@ export function SettingsModal({ email, onClose }: Props) {
             ) : (
               <Row label="Status:" value="✗ FEHLEND" valueClass="text-red-400" />
             )}
+          </section>
+
+          {/* Credentials Upload */}
+          <section className="space-y-2">
+            <p className="text-[9px] uppercase tracking-widest text-term-muted border-b border-term-border pb-1">CREDENTIALS AUF SERVER KOPIEREN</p>
+            <p className="text-[10px] text-term-muted leading-relaxed">
+              Führe diesen Befehl auf deinem lokalen Rechner aus. Ersetze USER mit deinem SSH-Benutzernamen.
+            </p>
+
+            {/* OS tabs */}
+            <div className="flex border border-term-border text-[10px]">
+              {(['mac', 'linux', 'windows'] as OS[]).map((o) => (
+                <button
+                  key={o}
+                  onClick={() => setOs(o)}
+                  className={`flex-1 py-1 uppercase tracking-wider transition-colors ${
+                    os === o ? 'bg-term-accent text-black' : 'text-term-muted hover:text-term-text'
+                  }`}
+                >
+                  {o === 'mac' ? 'macOS' : o === 'linux' ? 'Linux' : 'Windows'}
+                </button>
+              ))}
+            </div>
+
+            {/* Command box */}
+            <div className="relative">
+              <pre className="bg-term-bg border border-term-border p-2 text-[10px] text-term-text leading-relaxed whitespace-pre-wrap break-all">
+                {exportCommand(os, host)}
+              </pre>
+              <button
+                onClick={handleCopy}
+                className="absolute top-1.5 right-1.5 px-2 py-0.5 text-[9px] uppercase tracking-wider border border-term-border text-term-muted hover:text-term-text hover:border-term-accent transition-colors bg-term-panel"
+              >
+                {copied ? '✓' : 'COPY'}
+              </button>
+            </div>
           </section>
         </div>
       </div>
