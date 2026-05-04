@@ -1,16 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getToken, setToken, clearToken, apiFetch } from '../lib/http'
 
-const SERVER_URL_KEY = 'ao_server_url'
-
-export function getServerUrl(): string {
-  return localStorage.getItem(SERVER_URL_KEY) ?? ''
-}
-
-export function setServerUrl(url: string): void {
-  localStorage.setItem(SERVER_URL_KEY, url.replace(/\/$/, ''))
-}
-
 export type AuthState = 'loading' | 'authenticated' | 'unauthenticated'
 
 export function useAuth() {
@@ -52,8 +42,7 @@ export function useAuth() {
     setState('authenticated')
   }, [])
 
-  const register = useCallback(async (emailInput: string, password: string, serverUrl: string) => {
-    setServerUrl(serverUrl)
+  const register = useCallback(async (emailInput: string, password: string) => {
     const res = await apiFetch('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({ email: emailInput, password }),

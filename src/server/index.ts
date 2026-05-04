@@ -1,40 +1,43 @@
-import express, { type Request, type Response } from 'express'
+import express from 'express'
 import { createServer } from 'node:http'
 import { join } from 'node:path'
-import {
-  createAgent,
-  deleteAgent,
-  getAgent,
-  listAgents,
-  listMessages,
-  updateAgent,
-} from '../main/agent-store.js'
-import { hasClaudeAuth } from '../main/auth-sync.js'
+import jwt from 'jsonwebtoken'
+import type { Response } from 'express'
+
+import { createAuthRouter } from '../main/server/auth-router.js'
+import { createCredentialsRouter } from '../main/server/credentials-router.js'
+import { createAgentsRouter, setManagers } from '../main/server/agents-router.js'
+import { createDockerRouter, setDockerManager } from '../main/server/docker-router.js'
+import { createMessagesRouter, setMessageRouter } from '../main/server/messages-router.js'
+import type { AuthPayload } from '../main/server/middleware.js'
 import { DockerManager } from '../main/docker-manager.js'
-import * as logBuffer from '../main/log-buffer.js'
 import { MessageRouter } from '../main/message-router.js'
+import * as logBuffer from '../main/log-buffer.js'
+import { updateAgent } from '../main/agent-store.js'
 import { ensureRoot } from '../main/paths.js'
-import type { Agent, LogLine, NewAgentInput, SendMessageInput } from '../shared/types.js'
+import type { Agent, AgentMessage, LogLine } from '../shared/types.js'
 
 const PORT = Number(process.env.PORT ?? 3000)
 
-const app = express()
-app.use(express.json())
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET env var is required and must be at least 32 characters')
+}
+if (!process.env.CREDENTIALS_SECRET || process.env.CREDENTIALS_SECRET.length < 32) {
+  throw new Error('CREDENTIALS_SECRET env var is required and must be at least 32 characters')
+}
 
-// Serve built frontend
-const staticDir = join(process.cwd(), 'web-dist')
-app.use(express.static(staticDir))
+// ── SSE per-user broadcast ────────────────────────────────────
+const sseClients = new Map<string, Set<Response>>()
 
-// ── SSE broadcast ─────────────────────────────────────────────
-const sseClients = new Set<Response>()
-
-function broadcast(event: string, data: unknown): void {
+function broadcast(userId: string, event: string, data: unknown): void {
+  const clients = sseClients.get(userId)
+  if (!clients?.size) return
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
-  for (const client of sseClients) {
+  for (const client of clients) {
     try {
       client.write(payload)
     } catch {
-      sseClients.delete(client)
+      clients.delete(client)
     }
   }
 }
@@ -42,136 +45,76 @@ function broadcast(event: string, data: unknown): void {
 // ── Backend services ──────────────────────────────────────────
 ensureRoot()
 const docker = new DockerManager()
-const router = new MessageRouter()
+const msgRouter = new MessageRouter()
 
-docker.on('log', (line: LogLine) => {
-  logBuffer.append(line)
-  broadcast('agent:log', line)
+docker.on('log', ({ userId, line }: { userId: string; line: LogLine }) => {
+  logBuffer.append(userId, line)
+  broadcast(userId, 'agent:log', line)
 })
 
-docker.on('status', (payload: { agentId: string; status: Agent['status'] }) => {
-  void updateAgent(payload.agentId, { status: payload.status }).then((updated) => {
-    if (updated) broadcast('agent:status', updated)
+docker.on('status', ({ userId, agentId, status }: { userId: string; agentId: string; status: Agent['status'] }) => {
+  void updateAgent(userId, agentId, { status }).then((updated) => {
+    if (updated) broadcast(userId, 'agent:status', updated)
   })
 })
 
-router.on('message', (msg) => broadcast('message:delivered', msg))
-router.on('routing-error', (err) => broadcast('message:error', err))
+msgRouter.on('message', ({ userId, message }: { userId: string; message: AgentMessage }) => {
+  broadcast(userId, 'message:delivered', message)
+})
 
-void router.start()
+msgRouter.on('routing-error', ({ userId, ...err }: { userId: string; fromId: string; filePath: string; reason: string }) => {
+  broadcast(userId, 'message:error', err)
+})
 
-// ── SSE endpoint ──────────────────────────────────────────────
-app.get('/api/events', (req: Request, res: Response) => {
+void msgRouter.start()
+
+setManagers(docker, msgRouter)
+setDockerManager(docker)
+setMessageRouter(msgRouter)
+
+// ── Express app ───────────────────────────────────────────────
+const app = express()
+app.use(express.json())
+
+const staticDir = join(process.cwd(), 'web-dist')
+app.use(express.static(staticDir))
+
+// Public auth routes
+app.use('/api/auth', createAuthRouter())
+
+// Credentials (own requireAuth inside each handler)
+app.use('/api/auth/credentials', createCredentialsRouter())
+
+// Protected routes
+app.use('/api/agents', createAgentsRouter())
+app.use('/api/docker', createDockerRouter())
+app.use('/api/messages', createMessagesRouter())
+
+// SSE – authenticated via ?token= query param (EventSource can't set headers)
+app.get('/api/events', (req, res) => {
+  const token = req.query.token as string | undefined
+  if (!token) { res.status(401).end(); return }
+  let userId: string
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET!) as AuthPayload
+    userId = payload.sub
+  } catch {
+    res.status(401).end()
+    return
+  }
+
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache')
   res.setHeader('Connection', 'keep-alive')
   res.flushHeaders()
-  res.write(':\n\n') // keep-alive comment
-  sseClients.add(res)
-  req.on('close', () => sseClients.delete(res))
+  res.write(':\n\n')
+
+  if (!sseClients.has(userId)) sseClients.set(userId, new Set())
+  sseClients.get(userId)!.add(res)
+  req.on('close', () => sseClients.get(userId)?.delete(res))
 })
 
-// ── Auth ──────────────────────────────────────────────────────
-app.get('/api/auth/status', (_req, res) => {
-  res.json(hasClaudeAuth())
-})
-
-// ── Docker ────────────────────────────────────────────────────
-app.get('/api/docker/status', async (_req, res) => {
-  try {
-    res.json({ reachable: await docker.ping(), imageReady: await docker.ensureImage() })
-  } catch (e) {
-    res.status(500).json({ error: String(e) })
-  }
-})
-
-// ── Agents ────────────────────────────────────────────────────
-app.get('/api/agents', async (_req, res) => {
-  res.json(await listAgents())
-})
-
-app.post('/api/agents', async (req, res) => {
-  try {
-    res.json(await createAgent(req.body as NewAgentInput))
-  } catch (e) {
-    res.status(400).json({ error: String(e) })
-  }
-})
-
-app.get('/api/agents/:id', async (req, res) => {
-  const agent = await getAgent(req.params.id)
-  if (!agent) { res.status(404).json({ error: 'Not found' }); return }
-  res.json(agent)
-})
-
-app.get('/api/agents/:id/logs', (req, res) => {
-  res.json(logBuffer.history(req.params.id))
-})
-
-app.post('/api/agents/:id/start', async (req, res) => {
-  const { id } = req.params
-  const agent = await getAgent(id)
-  if (!agent) { res.status(404).json({ error: 'Not found' }); return }
-
-  await updateAgent(id, { status: 'starting', lastError: undefined })
-
-  const emitLog = (text: string) => {
-    const line: LogLine = { agentId: id, stream: 'system', ts: new Date().toISOString(), text }
-    logBuffer.append(line)
-    broadcast('agent:log', line)
-  }
-
-  try {
-    await docker.ensureDockerRunning(emitLog)
-    if (!(await docker.ensureImage())) {
-      await docker.buildAgentImage(emitLog)
-    }
-    const containerId = await docker.startAgent(agent.id, agent.name, agent.systemPrompt, agent.model)
-    router.watchAgent(agent.id)
-    res.json(await updateAgent(id, { containerId, status: 'running' }))
-  } catch (err) {
-    await updateAgent(id, { status: 'error', lastError: String(err) })
-    res.status(500).json({ error: String(err) })
-  }
-})
-
-app.post('/api/agents/:id/stop', async (req, res) => {
-  const { id } = req.params
-  const agent = await getAgent(id)
-  if (!agent?.containerId) { res.json(null); return }
-  await updateAgent(id, { status: 'stopping' })
-  await docker.stopAgent(agent.containerId)
-  await router.unwatchAgent(id)
-  res.json(await updateAgent(id, { status: 'stopped' }))
-})
-
-app.delete('/api/agents/:id', async (req, res) => {
-  const { id } = req.params
-  const agent = await getAgent(id)
-  if (agent?.containerId) {
-    try { await docker.removeAgent(agent.containerId) } catch { /* already gone */ }
-  }
-  await router.unwatchAgent(id)
-  logBuffer.clear(id)
-  await deleteAgent(id)
-  res.json({ ok: true })
-})
-
-// ── Messages ──────────────────────────────────────────────────
-app.get('/api/messages', async (req, res) => {
-  const agentId = req.query.agentId as string | undefined
-  res.json(await listMessages(agentId))
-})
-
-app.post('/api/messages', async (req, res) => {
-  try {
-    res.json(await router.sendMessage(req.body as SendMessageInput))
-  } catch (e) {
-    res.status(400).json({ error: String(e) })
-  }
-})
-
-// Fallback: serve frontend for client-side routing
+// SPA fallback
 app.get('/{*path}', (_req, res) => {
   res.sendFile(join(staticDir, 'index.html'))
 })
@@ -179,10 +122,10 @@ app.get('/{*path}', (_req, res) => {
 // ── Start ─────────────────────────────────────────────────────
 const server = createServer(app)
 server.listen(PORT, () => {
-  console.log(`Agent Orchestrator web server → http://localhost:${PORT}`)
+  console.log(`Agent Orchestrator → http://localhost:${PORT}`)
 })
 
 process.on('SIGTERM', async () => {
-  await router.stop()
+  await msgRouter.stop()
   server.close()
 })

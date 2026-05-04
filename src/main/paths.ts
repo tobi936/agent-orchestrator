@@ -2,14 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 function getRoot(): string {
-  if (process.env.AGENT_DATA_DIR) return process.env.AGENT_DATA_DIR
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const electron = require('electron') as { app: { getPath(n: string): string } }
-    return join(electron.app.getPath('userData'), 'agent-orchestrator')
-  } catch {
-    return join(process.cwd(), 'data')
-  }
+  return process.env.AGENT_DATA_DIR ?? join(process.cwd(), 'data')
 }
 
 const root = getRoot()

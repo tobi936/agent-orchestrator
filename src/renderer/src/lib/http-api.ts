@@ -1,4 +1,5 @@
 import type { Agent, AgentMessage, LogLine, NewAgentInput, SendMessageInput } from '@shared/types'
+import { getToken } from './http'
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(path)
@@ -30,7 +31,8 @@ class SseBus {
 
   private connect(): void {
     if (this.source) return
-    this.source = new EventSource('/api/events')
+    const token = getToken() ?? ''
+    this.source = new EventSource(`/api/events?token=${encodeURIComponent(token)}`)
     for (const ev of this.events) {
       this.source.addEventListener(ev, (e: MessageEvent) => {
         const data = JSON.parse(e.data as string) as unknown
