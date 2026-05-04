@@ -25,7 +25,7 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
 
   const res = await fetch(`${baseUrl()}${path}`, { ...init, headers })
 
-  if (res.status === 401) {
+  if (res.status === 401 && token) {
     clearToken()
     window.location.reload()
   }
