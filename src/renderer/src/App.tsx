@@ -13,6 +13,16 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
 
+  useEffect(() => {
+    if (authState !== 'authenticated') return
+    if (!selectedId && agents.length > 0) {
+      setSelectedId(agents[0].id)
+    }
+    if (selectedId && !agents.find((a) => a.id === selectedId)) {
+      setSelectedId(agents[0]?.id ?? null)
+    }
+  }, [agents, selectedId, authState])
+
   if (authState === 'loading') {
     return (
       <div className="flex items-center justify-center h-full bg-term-bg font-mono text-term-muted text-xs">
@@ -29,15 +39,6 @@ export function App() {
       />
     )
   }
-
-  useEffect(() => {
-    if (!selectedId && agents.length > 0) {
-      setSelectedId(agents[0].id)
-    }
-    if (selectedId && !agents.find((a) => a.id === selectedId)) {
-      setSelectedId(agents[0]?.id ?? null)
-    }
-  }, [agents, selectedId])
 
   const selected = agents.find((a) => a.id === selectedId) ?? null
 
