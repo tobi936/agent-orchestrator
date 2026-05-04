@@ -15,7 +15,8 @@ import { MessageRouter } from '../main/message-router.js'
 import * as logBuffer from '../main/log-buffer.js'
 import { updateAgent } from '../main/agent-store.js'
 import { ensureRoot } from '../main/paths.js'
-import { hasClaudeAuth } from '../main/auth-sync.js'
+import { requireAuth } from '../main/server/middleware.js'
+import { findUserById } from '../main/server/user-store.js'
 import type { Agent, AgentMessage, LogLine } from '../shared/types.js'
 
 const PORT = Number(process.env.PORT ?? 3000)
@@ -80,9 +81,10 @@ app.use(express.json())
 const staticDir = join(process.cwd(), 'web-dist')
 app.use(express.static(staticDir))
 
-// Claude auth status (unauthenticated – just a health indicator)
-app.get('/api/auth/status', (_req, res) => {
-  res.json(hasClaudeAuth())
+// Claude auth status – per-user check
+app.get('/api/auth/status', requireAuth, async (req, res) => {
+  const user = await findUserById(req.userId)
+  res.json(!!user?.claudeCredentials)
 })
 
 // Public auth routes
@@ -119,6 +121,7 @@ app.get('/api/events', (req, res) => {
   sseClients.get(userId)!.add(res)
   req.on('close', () => sseClients.get(userId)?.delete(res))
 })
+
 
 // SPA fallback
 app.get('/{*path}', (_req, res) => {

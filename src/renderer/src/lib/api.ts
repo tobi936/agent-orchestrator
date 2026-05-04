@@ -5,6 +5,7 @@ export const authApi = {
   status: () => httpApi.auth.status(),
 }
 
+
 export const agentsApi = {
   list: () => httpApi.agents.list(),
   get: (id: string) => httpApi.agents.get(id),
