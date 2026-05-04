@@ -17,9 +17,21 @@ export function AuthScreen({ onLogin, onRegister }: Props) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+
+    if (!email || !password) {
+      setError('Bitte alle Felder ausfüllen')
+      return
+    }
+
+    if (!EMAIL_RE.test(email)) {
+      setError('Ungültige E-Mail-Adresse')
+      return
+    }
 
     if (tab === 'register') {
       if (password.length < 8) {
@@ -74,7 +86,7 @@ export function AuthScreen({ onLogin, onRegister }: Props) {
           ))}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-3" noValidate>
           <Field label="Email:" type="email" value={email} onChange={setEmail} required />
           <Field label="Passwort:" type="password" value={password} onChange={setPassword} required />
 

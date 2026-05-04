@@ -44,7 +44,7 @@ export function useAuth() {
     })
     if (!res.ok) {
       const body = await res.json() as { error: string }
-      throw new Error(body.error ?? 'Login fehlgeschlagen')
+      throw new Error(body.error === 'unauthorized' ? 'Ungültige E-Mail-Adresse oder Passwort' : (body.error ?? 'Login fehlgeschlagen'))
     }
     const body = await res.json() as { token: string; user: { email: string } }
     setToken(body.token)
