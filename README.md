@@ -1,4 +1,4 @@
-# agent-orchestrator
+# POC WORK IN PROGRESS agent-orchestrator
 
 A local desktop app for orchestrating **Claude Code agents running in Docker containers**, with a console-style UI. Each agent has its own container, an inbox/outbox folder pair, and can delegate work to other agents through the orchestrator's message router.
 
