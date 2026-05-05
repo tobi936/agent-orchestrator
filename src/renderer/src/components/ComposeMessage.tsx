@@ -71,10 +71,10 @@ export function ComposeMessage({ target, agents, onSent }: Props) {
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder={`MESSAGE TO ${target.name.toUpperCase()}... (CTRL+ENTER TO SEND)`}
+          placeholder={`MESSAGE TO ${target.name.toUpperCase()}... (ENTER TO SEND, SHIFT+ENTER FOR NEW LINE)`}
           rows={2}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void send(e)
+            if (e.key === 'Enter' && !e.shiftKey) void send(e)
           }}
           className="flex-1 bg-black border border-term-border rounded-sm px-2 py-1.5 text-xs text-term-text font-mono outline-none focus:border-term-blue resize-none placeholder:text-term-muted/30"
         />
