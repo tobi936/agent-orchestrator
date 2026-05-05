@@ -5,6 +5,7 @@ import type { Agent, AgentMessage } from '@shared/types'
 interface Props {
   agent: Agent
   agents: Agent[]
+  refreshKey?: number
 }
 
 function nameOf(id: string, agents: Agent[]): string {
@@ -41,7 +42,7 @@ function MessageRow({ msg, agents }: { msg: AgentMessage; agents: Agent[] }) {
   )
 }
 
-export function InboxOutbox({ agent, agents }: Props) {
+export function InboxOutbox({ agent, agents, refreshKey }: Props) {
   const [messages, setMessages] = useState<AgentMessage[]>([])
   const [tab, setTab] = useState<'inbox' | 'outbox'>('inbox')
 
@@ -59,7 +60,7 @@ export function InboxOutbox({ agent, agents }: Props) {
       cancelled = true
       off1()
     }
-  }, [agent.id])
+  }, [agent.id, refreshKey])
 
   const inbox = messages.filter((m) => m.to === agent.id).sort(byDateDesc)
   const outbox = messages.filter((m) => m.from === agent.id).sort(byDateDesc)

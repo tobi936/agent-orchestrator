@@ -7,7 +7,7 @@ import type { Response } from 'express'
 import { createAuthRouter } from '../main/server/auth-router.js'
 import { createCredentialsRouter } from '../main/server/credentials-router.js'
 import { createAgentsRouter, setManagers } from '../main/server/agents-router.js'
-import { createDockerRouter, setDockerManager } from '../main/server/docker-router.js'
+import { createDockerRouter, setDockerManager, triggerImageBuild } from '../main/server/docker-router.js'
 import { createMessagesRouter, setMessageRouter } from '../main/server/messages-router.js'
 import type { AuthPayload } from '../main/server/middleware.js'
 import { DockerManager } from '../main/docker-manager.js'
@@ -73,6 +73,11 @@ void msgRouter.start()
 setManagers(docker, msgRouter)
 setDockerManager(docker)
 setMessageRouter(msgRouter)
+
+// Auto-build image on startup if missing
+void docker.ping().then((ok) => {
+  if (ok) triggerImageBuild()
+})
 
 // ── Express app ───────────────────────────────────────────────
 const app = express()

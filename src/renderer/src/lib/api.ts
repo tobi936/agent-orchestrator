@@ -23,6 +23,7 @@ export const messagesApi = {
 
 export const dockerApi = {
   status: () => httpApi.docker.status(),
+  build: () => httpApi.docker.build(),
 }
 
 export const events = httpApi.events

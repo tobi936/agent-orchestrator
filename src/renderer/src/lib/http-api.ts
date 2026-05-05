@@ -56,7 +56,8 @@ export const httpApi = {
     status: () => get<boolean>('/api/auth/status'),
   },
   docker: {
-    status: () => get<{ reachable: boolean; imageReady: boolean }>('/api/docker/status'),
+    status: () => get<{ reachable: boolean; imageReady: boolean; building: boolean }>('/api/docker/status'),
+    build: () => post<{ building: boolean }>('/api/docker/build'),
   },
   agents: {
     list: () => get<Agent[]>('/api/agents'),

@@ -5,9 +5,10 @@ import type { Agent } from '@shared/types'
 interface Props {
   target: Agent
   agents: Agent[]
+  onSent?: () => void
 }
 
-export function ComposeMessage({ target, agents }: Props) {
+export function ComposeMessage({ target, agents, onSent }: Props) {
   const [from, setFrom] = useState<string>('orchestrator')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
@@ -28,6 +29,7 @@ export function ComposeMessage({ target, agents }: Props) {
       })
       setBody('')
       setSubject('')
+      onSent?.()
     } catch (err) {
       setError(String(err))
     } finally {

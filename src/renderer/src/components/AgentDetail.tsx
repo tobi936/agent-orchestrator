@@ -37,6 +37,7 @@ export function AgentDetail({ agent, agents, onChanged, onDeleted }: Props) {
   const [busy, setBusy] = useState<'start' | 'stop' | 'delete' | null>(null)
   const [startError, setStartError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [msgRefreshKey, setMsgRefreshKey] = useState(0)
 
   const copyError = useCallback((text: string) => {
     void navigator.clipboard.writeText(text).then(() => {
@@ -159,12 +160,12 @@ export function AgentDetail({ agent, agents, onChanged, onDeleted }: Props) {
         <LogPanel agentId={agent.id} />
 
         {/* Compose */}
-        <ComposeMessage target={agent} agents={agents} />
+        <ComposeMessage target={agent} agents={agents} onSent={() => setMsgRefreshKey((k) => k + 1)} />
       </div>
 
       {/* Right: inbox/outbox */}
       <div className="w-80 flex-shrink-0 border-l border-term-border">
-        <InboxOutbox agent={agent} agents={agents} />
+        <InboxOutbox agent={agent} agents={agents} refreshKey={msgRefreshKey} />
       </div>
     </div>
   )
