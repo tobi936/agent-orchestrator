@@ -2,6 +2,7 @@ export interface User {
   id: string
   email: string
   createdAt: string
+  claudeCredentials?: string
 }
 
 export type AgentStatus =
@@ -13,18 +14,12 @@ export type AgentStatus =
   | 'stopped'
   | 'error'
 
-export type Provider = 'claude' | 'ollama' | 'openai-compatible'
-
 export interface Agent {
   id: string
-  userId?: string
+  userId: string
   name: string
   systemPrompt: string
   model: string
-  /** Which LLM backend runs this agent */
-  provider: Provider
-  /** Base URL for ollama/openai-compatible providers */
-  providerUrl?: string
   createdAt: string
   containerId?: string
   status: AgentStatus
@@ -33,28 +28,13 @@ export interface Agent {
 
 export interface AgentMessage {
   id: string
-  userId?: string
+  userId: string
   from: string
   to: string
   subject?: string
   body: string
   createdAt: string
   status: 'queued' | 'delivered' | 'processed' | 'replied' | 'error'
-}
-
-export interface NewAgentInput {
-  name: string
-  systemPrompt: string
-  model?: string
-  provider?: Provider
-  providerUrl?: string
-}
-
-export interface SendMessageInput {
-  from: string
-  to: string
-  subject?: string
-  body: string
 }
 
 export interface LogLine {
@@ -64,7 +44,9 @@ export interface LogLine {
   text: string
 }
 
-export interface OrchestratorEvent<T = unknown> {
+export interface ServiceEvent<T = unknown> {
   type: string
   payload: T
+  userId: string
+  ts: string
 }

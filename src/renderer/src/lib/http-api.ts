@@ -26,7 +26,7 @@ async function del<T>(path: string): Promise<T> {
 class SseBus {
   private source: EventSource | null = null
   private listeners = new Map<string, Set<(d: unknown) => void>>()
-  private readonly events = ['agent:log', 'agent:status', 'message:delivered', 'message:error']
+  private readonly events = ['agent:log', 'agent:status', 'message:delivered', 'message:queued', 'message:updated', 'message:error', 'agent:deleted']
 
   private connect(): void {
     if (this.source) return

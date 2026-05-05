@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-manager
+  namespace: agent-orchestrator
+spec:
+  selector:
+    app: agent-manager
+  ports:
+    - port: 3001
+      targetPort: 3001
+  type: ClusterIP  # Internal only — access via API Gateway
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agent-data-pvc
+  namespace: agent-orchestrator
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard

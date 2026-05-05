@@ -1,0 +1,123 @@
+version: '3.9'
+
+# Local development stack.
+# Run: docker compose up --build
+#
+# Services:
+#   api-gateway     → http://localhost:3000  (frontend + API entry)
+#   agent-manager   → internal :3001
+#   message-service → internal :3002
+#   postgres        → localhost:5432
+#   ollama          → http://localhost:11434 (optional local LLM)
+
+networks:
+  agent-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  agent-data:
+  ollama-data:
+
+x-common-env: &common-env
+  DATABASE_URL: postgres://orchestrator:orchestrator@postgres:5432/orchestrator
+  JWT_SECRET: ${JWT_SECRET:-change-me-in-production-min-32-chars!!}
+  INTERNAL_SECRET: ${INTERNAL_SECRET:-internal-secret-change-me-32-chars}
+  API_GATEWAY_URL: http://api-gateway:3000
+  AGENT_MANAGER_URL: http://agent-manager:3001
+  MESSAGE_SERVICE_URL: http://message-service:3002
+  NODE_ENV: development
+
+services:
+  # ── PostgreSQL ───────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: orchestrator
+      POSTGRES_USER: orchestrator
+      POSTGRES_PASSWORD: orchestrator
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./services/shared/db-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orchestrator"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - agent-net
+
+  # ── API Gateway ──────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    environment:
+      <<: *common-env
+      PORT: 3000
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CREDENTIALS_SECRET: ${CREDENTIALS_SECRET:-credentials-secret-change-me-32ch}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./services/api-gateway/src:/app/src  # hot reload in dev
+    networks:
+      - agent-net
+
+  # ── Agent Manager ────────────────────────────────────────────
+  agent-manager:
+    build:
+      context: ./services/agent-manager
+      dockerfile: Dockerfile
+    environment:
+      <<: *common-env
+      PORT: 3001
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AGENT_IMAGE: agent-orchestrator/agent:latest
+      DOCKER_SOCKET: /var/run/docker.sock
+      DOCKER_NETWORK: agent-orchestrator_agent-net
+      DATA_ROOT: /data
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - agent-data:/data
+      - ./services/agent-manager/src:/app/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - agent-net
+
+  # ── Message Service ──────────────────────────────────────────
+  message-service:
+    build:
+      context: ./services/message-service
+      dockerfile: Dockerfile
+    environment:
+      <<: *common-env
+      PORT: 3002
+      DATA_ROOT: /data
+    volumes:
+      - agent-data:/data
+      - ./services/message-service/src:/app/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - agent-net
+
+  # ── Ollama (optional local LLM) ──────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ollama"]  # only starts with: docker compose --profile ollama up
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - agent-net
+    # Pull a model on first start: docker compose exec ollama ollama pull llama3.1

@@ -1,0 +1,28 @@
+{
+  "name": "@agent-orchestrator/agent-manager",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node --experimental-strip-types src/index.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.54.0",
+    "dockerode": "^4.0.7",
+    "express": "^5.2.1",
+    "pg": "^8.13.3",
+    "nanoid": "^5.1.5",
+    "chokidar": "^4.0.3",
+    "axios": "^1.8.4"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^3.3.42",
+    "@types/express": "^5.0.6",
+    "@types/pg": "^8.11.11",
+    "@types/node": "^22.10.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
