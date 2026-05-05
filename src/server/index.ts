@@ -76,7 +76,7 @@ setMessageRouter(msgRouter)
 
 // ── Express app ───────────────────────────────────────────────
 const app = express()
-app.use(express.json())
+app.use(express.json({ limit: '20mb' }))
 
 const staticDir = join(process.cwd(), 'web-dist')
 app.use(express.static(staticDir))
