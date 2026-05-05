@@ -1,43 +1,35 @@
 import { useCallback, useState } from 'react'
 import { agentsApi } from '../lib/api'
 import type { Agent } from '@shared/types'
-import { ClaudeOutput } from './ClaudeOutput'
-import { LogPanel } from './LogPanel'
-import { InboxOutbox } from './InboxOutbox'
-import { ComposeMessage } from './ComposeMessage'
+import { Icon } from './Icons'
+import { ChatView } from './ChatView'
 
 interface Props {
   agent: Agent
   agents: Agent[]
+  tab: 'chat' | 'config'
+  setTab: (t: 'chat' | 'config') => void
   onChanged: () => void
   onDeleted: () => void
 }
 
-const statusDot: Record<Agent['status'], string> = {
-  created: 'bg-term-muted',
-  starting: 'bg-term-warn animate-pulse',
-  running: 'bg-term-ok',
-  idle: 'bg-term-accent',
-  stopping: 'bg-term-warn animate-pulse',
-  stopped: 'bg-term-muted',
-  error: 'bg-term-err',
+function agentStatusClass(status: Agent['status']): string {
+  switch (status) {
+    case 'running':  return 'running'
+    case 'idle':     return 'idle'
+    case 'starting':
+    case 'stopping': return 'starting'
+    case 'error':    return 'error'
+    case 'stopped':
+    case 'created':  return 'stopped'
+    default:         return 'stopped'
+  }
 }
 
-const statusLabel: Record<Agent['status'], string> = {
-  created: 'READY',
-  starting: 'STARTING',
-  running: 'RUNNING',
-  idle: 'IDLE',
-  stopping: 'STOPPING',
-  stopped: 'STOPPED',
-  error: 'ERROR',
-}
-
-export function AgentDetail({ agent, agents, onChanged, onDeleted }: Props) {
+export function AgentDetail({ agent, agents, tab, setTab, onChanged, onDeleted }: Props) {
   const [busy, setBusy] = useState<'start' | 'stop' | 'delete' | null>(null)
   const [startError, setStartError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const [msgRefreshKey, setMsgRefreshKey] = useState(0)
 
   const copyError = useCallback((text: string) => {
     void navigator.clipboard.writeText(text).then(() => {
@@ -55,9 +47,9 @@ export function AgentDetail({ agent, agents, onChanged, onDeleted }: Props) {
     } catch (err) {
       const msg = String(err)
       if (msg.includes('docker_engine') || msg.includes('ENOENT')) {
-        setStartError('DOCKER UNREACHABLE — Please start Docker Desktop and retry.')
+        setStartError('Docker unreachable — please start Docker Desktop and retry.')
       } else {
-        setStartError(`START FAILED: ${msg}`)
+        setStartError(`Start failed: ${msg}`)
       }
       onChanged()
     } finally {
@@ -76,7 +68,7 @@ export function AgentDetail({ agent, agents, onChanged, onDeleted }: Props) {
   }
 
   const remove = async () => {
-    if (!confirm(`DELETE Agent "${agent.name}"? This action cannot be undone.`)) return
+    if (!confirm(`Delete agent "${agent.name}"? This cannot be undone.`)) return
     setBusy('delete')
     try {
       await agentsApi.remove(agent.id)
@@ -87,86 +79,169 @@ export function AgentDetail({ agent, agents, onChanged, onDeleted }: Props) {
   }
 
   const isRunning = agent.status === 'running' || agent.status === 'starting'
+  const dotClass = agentStatusClass(agent.status)
+
+  const uptimeSecs = Math.floor((Date.now() - new Date(agent.createdAt).getTime()) / 1000)
+  const formatUptime = (s: number) => {
+    if (s < 60) return `${s}s`
+    if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`
+    if (s < 86400) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`
+    return `${Math.floor(s / 86400)}d`
+  }
 
   return (
-    <div className="flex flex-1 min-w-0 min-h-0 font-mono">
-      {/* Main column */}
-      <div className="flex flex-col flex-1 min-w-0 min-h-0">
-        {/* Header */}
-        <header className="flex items-center gap-3 px-3 py-1.5 border-b border-term-border bg-term-panel flex-shrink-0">
-          <span className={`w-1.5 h-1.5 rounded-sm flex-shrink-0 ${statusDot[agent.status]}`} />
-          <span className="text-xs text-term-text font-mono uppercase tracking-wider truncate">{agent.name}</span>
-          <span className="text-[10px] text-term-muted font-mono">{statusLabel[agent.status]}</span>
-          <div className="ml-auto flex gap-1.5 text-[10px] flex-shrink-0">
+    <>
+      <div className="detail-header">
+        {/* Error banner */}
+        {(startError ?? agent.lastError) && (
+          <div style={{
+            padding: '8px 12px',
+            marginBottom: 12,
+            background: 'var(--err-soft)',
+            border: '1px solid var(--err)',
+            borderRadius: 'var(--radius)',
+            fontSize: 12,
+            color: 'var(--err)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}>
+            <span style={{ flex: 1 }}>{startError ?? agent.lastError}</span>
+            <button
+              style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--err)', background: 'none', border: 'none', cursor: 'pointer', opacity: 0.8 }}
+              onClick={() => copyError(startError ?? agent.lastError ?? '')}
+            >
+              {copied ? 'copied' : 'copy'}
+            </button>
+            {startError && (
+              <button style={{ fontSize: 11, color: 'var(--err)', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setStartError(null)}>
+                ×
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="detail-title-row">
+          <div className="detail-title-block">
+            <div className="detail-breadcrumb">
+              <span>agents</span>
+              <span className="crumb-sep">/</span>
+              <span style={{ color: 'var(--ink-2)' }}>{agent.name}</span>
+            </div>
+            <h1 className="detail-title">
+              <span className={`status-dot ${dotClass}`} />
+              {agent.name}
+            </h1>
+            <div className="detail-sub">
+              <div className="detail-sub-item">
+                <span className="label">id</span>
+                <span className="value">{agent.id.slice(0, 8)}</span>
+              </div>
+              <div className="detail-sub-divider" />
+              <div className="detail-sub-item">
+                <span className="label">model</span>
+                <span className="value">{agent.model || 'claude-opus-4-5'}</span>
+              </div>
+              <div className="detail-sub-divider" />
+              <div className="detail-sub-item">
+                <span className="label">status</span>
+                <span className="value">{agent.status}</span>
+              </div>
+              <div className="detail-sub-divider" />
+              <div className="detail-sub-item">
+                <span className="label">uptime</span>
+                <span className="value">{formatUptime(uptimeSecs)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="detail-actions">
             {!isRunning && (
-              <button
-                onClick={start}
-                disabled={busy !== null}
-                className="px-2 py-1 border border-term-ok rounded-sm text-term-ok hover:bg-term-ok hover:text-black disabled:opacity-40 transition-colors font-mono uppercase"
-              >
-                {busy === 'start' ? '...' : 'START'}
+              <button className="btn" onClick={() => void start()} disabled={busy !== null}>
+                <Icon name="play" size={12} />
+                {busy === 'start' ? 'Starting…' : 'Start'}
               </button>
             )}
             {isRunning && (
-              <button
-                onClick={stop}
-                disabled={busy !== null}
-                className="px-2 py-1 border border-term-warn rounded-sm text-term-warn hover:bg-term-warn hover:text-black disabled:opacity-40 transition-colors font-mono uppercase"
-              >
-                {busy === 'stop' ? '...' : 'STOP'}
+              <button className="btn" onClick={() => void stop()} disabled={busy !== null}>
+                <Icon name="stop" size={12} />
+                {busy === 'stop' ? 'Stopping…' : 'Stop'}
               </button>
             )}
-            <button
-              onClick={remove}
-              disabled={busy !== null}
-              className="px-2 py-1 border border-term-err rounded-sm text-term-err hover:bg-term-err hover:text-black disabled:opacity-40 transition-colors font-mono uppercase"
-            >
-              {busy === 'delete' ? '[...]' : '[DEL]'}
+            <button className="btn danger" onClick={() => void remove()} disabled={busy !== null}>
+              <Icon name="x" size={12} />
+              {busy === 'delete' ? 'Deleting…' : 'Delete'}
+            </button>
+            <button className="icon-btn" style={{ border: '1px solid var(--line-strong)' }}>
+              <Icon name="more" size={14} />
             </button>
           </div>
-        </header>
+        </div>
 
-        {/* Error banners */}
-        {startError && (
-          <div className="px-3 py-1.5 text-[10px] text-term-err bg-term-err/10 border-b border-term-err/40 flex items-start gap-2 flex-shrink-0 font-mono">
-            <span>[!]</span>
-            <span className="flex-1">{startError}</span>
-            <button
-              onClick={() => copyError(startError)}
-              className="opacity-60 hover:opacity-100 px-1.5 py-0.5 border border-term-err/40 rounded-sm hover:bg-term-err/20 transition-colors font-mono uppercase text-[9px]"
-            >
-              {copied ? '[COPIED]' : '[COPY]'}
-            </button>
-            <button onClick={() => setStartError(null)} className="opacity-60 hover:opacity-100 font-mono">[X]</button>
-          </div>
-        )}
-        {!startError && agent.lastError && (
-          <div className="px-3 py-1.5 text-[10px] text-term-err bg-term-err/10 border-b border-term-err/40 flex items-start gap-2 flex-shrink-0 font-mono">
-            <span>[!]</span>
-            <span className="flex-1">{agent.lastError}</span>
-            <button
-              onClick={() => copyError(agent.lastError!)}
-              className="opacity-60 hover:opacity-100 px-1.5 py-0.5 border border-term-err/40 rounded-sm hover:bg-term-err/20 transition-colors font-mono uppercase text-[9px]"
-            >
-              {copied ? '[COPIED]' : '[COPY]'}
-            </button>
-          </div>
-        )}
-
-        {/* Claude output — big main area */}
-        <ClaudeOutput agentId={agent.id} agentName={agent.name} />
-
-        {/* Collapsible system logs */}
-        <LogPanel agentId={agent.id} />
-
-        {/* Compose */}
-        <ComposeMessage target={agent} agents={agents} onSent={() => setMsgRefreshKey((k) => k + 1)} />
+        <div className="tabs">
+          <button
+            className={`tab${tab === 'chat' ? ' active' : ''}`}
+            onClick={() => setTab('chat')}
+          >
+            <Icon name="logs" size={13} />
+            Chat
+          </button>
+          <button
+            className={`tab${tab === 'config' ? ' active' : ''}`}
+            onClick={() => setTab('config')}
+          >
+            <Icon name="config" size={13} />
+            Config
+          </button>
+        </div>
       </div>
 
-      {/* Right: inbox/outbox */}
-      <div className="w-80 flex-shrink-0 border-l border-term-border">
-        <InboxOutbox agent={agent} agents={agents} refreshKey={msgRefreshKey} />
+      {tab === 'chat' && (
+        <ChatView agent={agent} agents={agents} />
+      )}
+
+      {tab === 'config' && (
+        <div className="config-content">
+          <div className="config-inner">
+            <ConfigSection title="System Prompt" subtitle="Sent on every Claude invocation as the initial system message.">
+              <div style={{ background: 'var(--bg-elev)', border: '1px solid var(--line)', borderRadius: 6, padding: 14, fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 1.6, color: 'var(--ink-2)', whiteSpace: 'pre-wrap' }}>
+                {agent.systemPrompt || '(no system prompt)'}
+              </div>
+            </ConfigSection>
+            <ConfigSection title="Model" subtitle="Anthropic API model configuration.">
+              <ConfigRow k="Model" v={agent.model || 'claude-opus-4-5'} mono />
+              <ConfigRow k="Agent ID" v={agent.id} mono />
+              <ConfigRow k="Created" v={new Date(agent.createdAt).toLocaleString()} />
+            </ConfigSection>
+            <ConfigSection title="Container" subtitle="Docker container paths.">
+              <ConfigRow k="Inbox path" v="/agent/inbox/" mono />
+              <ConfigRow k="Outbox path" v="/agent/outbox/" mono />
+              <ConfigRow k="Credentials" v={<><Icon name="lock" size={11} /> ~/.claude (encrypted)</>} />
+            </ConfigSection>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+function ConfigSection({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div style={{ marginBottom: 8 }}>
+        <div className="config-section-title">{title}</div>
+        <div className="config-section-subtitle">{subtitle}</div>
       </div>
+      <div className="config-rows">{children}</div>
+    </div>
+  )
+}
+
+function ConfigRow({ k, v, mono }: { k: string; v: React.ReactNode; mono?: boolean }) {
+  return (
+    <div className="config-row">
+      <div className="config-row-key">{k}</div>
+      <div className={`config-row-val${mono ? ' mono' : ''}`}>{v}</div>
     </div>
   )
 }
