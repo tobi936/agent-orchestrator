@@ -5,44 +5,29 @@ on:
     branches: [main]
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build frontend
-        run: npm run build
-
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.GCE_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-
-      - name: Sync dist to server
-        run: |
-          rsync -az --delete \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10" \
-            web-dist/ \
-            ${{ secrets.GCE_USER }}@${{ secrets.GCE_HOST }}:~/agent-orchestrator/web-dist/
-
-      - name: Install & restart on server
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.GCE_HOST }}
           username: ${{ secrets.GCE_USER }}
           key: ${{ secrets.GCE_SSH_KEY }}
+          command_timeout: 20m
           script: |
+            set -e
             cd ~/agent-orchestrator
+
+            git fetch origin main
+
+            DEPS_CHANGED=$(git diff HEAD origin/main -- package.json package-lock.json | grep -c . || true)
+            FRONTEND_CHANGED=$(git diff HEAD origin/main -- src/renderer/ vite.config.ts tailwind.config.* postcss.config.* | grep -c . || true)
+
             git pull origin main
-            npm install
+
+            [ "$DEPS_CHANGED" -gt 0 ] && npm install
+            [ "$FRONTEND_CHANGED" -gt 0 ] && npm run build
+
             pm2 restart agent-orchestrator
             pm2 save
