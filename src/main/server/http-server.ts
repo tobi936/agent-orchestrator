@@ -4,6 +4,7 @@ import { createCredentialsRouter } from './credentials-router.js'
 import { createAgentsRouter, setManagers } from './agents-router.js'
 import { createDockerRouter, setDockerManager } from './docker-router.js'
 import { createMessagesRouter, setMessageRouter } from './messages-router.js'
+import { createEventsRouter, setEventManagers } from './events-router.js'
 import { requireAuth } from './middleware.js'
 import type { DockerManager } from '../docker-manager.js'
 import type { MessageRouter } from '../message-router.js'
@@ -13,6 +14,7 @@ export function wireManagers(docker: DockerManager, router: MessageRouter): void
   setManagers(docker, router)
   setDockerManager(docker)
   setMessageRouter(router)
+  setEventManagers(docker, router)
 }
 
 export function createApp(): express.Express {
@@ -34,6 +36,7 @@ export function createApp(): express.Express {
   app.use('/api/agents', createAgentsRouter())
   app.use('/api/docker', createDockerRouter())
   app.use('/api/messages', createMessagesRouter())
+  app.use('/api/events', createEventsRouter())
 
   // Catch-all auth guard for any future /api routes
   app.use('/api', requireAuth)
