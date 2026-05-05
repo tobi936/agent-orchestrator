@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Agent } from '@shared/types'
+import { Icon } from './Icons'
 import { SettingsModal } from './SettingsModal'
 
 interface Props {
@@ -10,72 +11,105 @@ interface Props {
   email?: string | null
 }
 
-const statusDot: Record<Agent['status'], string> = {
-  created: 'bg-term-muted',
-  starting: 'bg-term-warn animate-pulse',
-  running: 'bg-term-ok',
-  idle: 'bg-term-accent',
-  stopping: 'bg-term-warn animate-pulse',
-  stopped: 'bg-term-muted',
-  error: 'bg-term-err',
+type Filter = 'all' | 'running' | 'idle' | 'other'
+
+function agentStatusClass(status: Agent['status']): string {
+  switch (status) {
+    case 'running': return 'running'
+    case 'idle':    return 'idle'
+    case 'starting':
+    case 'stopping':return 'starting'
+    case 'error':   return 'error'
+    case 'stopped':
+    case 'created': return 'stopped'
+    default:        return 'stopped'
+  }
 }
 
-const statusLabel: Record<Agent['status'], string> = {
-  created: 'READY',
-  starting: 'STARTING',
-  running: 'RUNNING',
-  idle: 'IDLE',
-  stopping: 'STOPPING',
-  stopped: 'STOPPED',
-  error: 'ERROR',
+function uptimeShort(createdAt: string): string {
+  const secs = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000)
+  if (secs < 60) return `${secs}s`
+  if (secs < 3600) return `${Math.floor(secs / 60)}m`
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h`
+  return `${Math.floor(secs / 86400)}d`
 }
 
 export function AgentSidebar({ agents, selectedId, onSelect, onNew, email }: Props) {
+  const [filter, setFilter] = useState<Filter>('all')
   const [showSettings, setShowSettings] = useState(false)
+
+  const counts = {
+    all: agents.length,
+    running: agents.filter((a) => a.status === 'running').length,
+    idle: agents.filter((a) => a.status === 'idle').length,
+    other: agents.filter((a) => !['running', 'idle'].includes(a.status)).length,
+  }
+
+  const filtered = agents.filter((a) => {
+    if (filter === 'all') return true
+    if (filter === 'running') return a.status === 'running'
+    if (filter === 'idle') return a.status === 'idle'
+    return !['running', 'idle'].includes(a.status)
+  })
 
   return (
     <>
-      <aside className="flex flex-col w-64 border-r border-term-border bg-term-panel flex-shrink-0">
-        <div className="px-2 py-2 border-b border-term-border">
-          <span className="text-[10px] uppercase tracking-widest text-term-muted block mb-2 font-mono">AGENTS</span>
-          <button
-            onClick={onNew}
-            className="w-full flex items-center justify-center gap-2 px-2 py-1.5 bg-transparent border border-term-accent rounded-sm text-[10px] text-term-accent hover:bg-term-accent hover:text-black transition-colors font-mono uppercase tracking-wider"
-          >
-            <span className="text-sm leading-none">+</span>
-            <span>NEW AGENT</span>
-          </button>
-        </div>
-        <ul className="flex-1 overflow-y-auto py-0.5">
-          {agents.length === 0 && (
-            <li className="px-2 py-3 text-[10px] text-term-muted text-center leading-relaxed font-mono">
-              NO AGENTS INITIALIZED
-            </li>
-          )}
-          {agents.map((a) => (
-            <li key={a.id}>
+      <aside className="sidebar">
+        <div className="sidebar-section" style={{ paddingBottom: 0 }}>
+          <div className="sidebar-header">
+            <div className="sidebar-title">
+              Agents <span className="sidebar-count">· {agents.length}</span>
+            </div>
+            <button className="btn-new" onClick={onNew} title="New agent">
+              <Icon name="plus" size={12} /> New
+            </button>
+          </div>
+          <div className="filter-pills">
+            {(['all', 'running', 'idle', 'other'] as Filter[]).map((k) => (
               <button
-                onClick={() => onSelect(a.id)}
-                className={`w-full text-left px-2 py-1.5 text-[10px] font-mono flex items-center gap-2 border-l-2 transition-colors ${
-                  selectedId === a.id
-                    ? 'border-term-accent bg-term-bg text-term-text'
-                    : 'border-transparent hover:bg-term-bg/60 text-term-muted hover:text-term-text'
-                }`}
+                key={k}
+                className={`filter-pill${filter === k ? ' active' : ''}`}
+                onClick={() => setFilter(k)}
               >
-                <span className={`inline-block w-1.5 h-1.5 rounded-sm flex-shrink-0 ${statusDot[a.status]}`} />
-                <span className="flex-1 truncate uppercase tracking-wide">{a.name}</span>
-                <span className="text-[9px] opacity-60 flex-shrink-0 font-mono">{statusLabel[a.status]}</span>
+                {k.charAt(0).toUpperCase() + k.slice(1)}
+                <span className="count">{counts[k]}</span>
               </button>
-            </li>
+            ))}
+          </div>
+        </div>
+
+        <div className="agent-list">
+          {filtered.length === 0 && (
+            <div style={{ padding: '12px 10px', fontSize: 12, color: 'var(--ink-4)', textAlign: 'center' }}>
+              No agents
+            </div>
+          )}
+          {filtered.map((a) => (
+            <div
+              key={a.id}
+              className={`agent-row${selectedId === a.id ? ' active' : ''}`}
+              onClick={() => onSelect(a.id)}
+            >
+              <span className={`status-dot ${agentStatusClass(a.status)}`} />
+              <div className="agent-row-main">
+                <div className="agent-row-name">{a.name}</div>
+                <div className="agent-row-meta">
+                  <span>{a.id.slice(0, 6)}</span>
+                  <span className="sep">·</span>
+                  <span>{uptimeShort(a.createdAt)}</span>
+                </div>
+              </div>
+            </div>
           ))}
-        </ul>
-        <div className="border-t border-term-border px-2 py-1.5 flex justify-end">
+        </div>
+
+        <div style={{ borderTop: '1px solid var(--line)', padding: '8px 14px', display: 'flex', justifyContent: 'flex-end' }}>
           <button
+            className="icon-btn"
             onClick={() => setShowSettings(true)}
-            title="Einstellungen"
-            className="text-term-muted hover:text-term-text transition-colors text-sm px-1"
+            title="Settings"
           >
-            ⚙
+            <Icon name="settings" size={14} />
           </button>
         </div>
       </aside>

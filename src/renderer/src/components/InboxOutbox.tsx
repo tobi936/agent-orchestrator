@@ -27,7 +27,7 @@ function MessageRow({ msg, agents }: { msg: AgentMessage; agents: Agent[] }) {
           <span className="text-term-blue">{nameOf(msg.to, agents)}</span>
           <span className={`ml-auto text-[9px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded-sm ${
             msg.status === 'delivered' ? 'bg-term-ok/20 text-term-ok' :
-            msg.status === 'pending' ? 'bg-term-warn/20 text-term-warn' :
+            msg.status === 'queued' ? 'bg-term-warn/20 text-term-warn' :
             'bg-term-err/20 text-term-err'
           }`}>
             {msg.status}
