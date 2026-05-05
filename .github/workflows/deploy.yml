@@ -26,12 +26,11 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.GCE_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.GCE_HOST }} >> ~/.ssh/known_hosts
 
       - name: Sync dist to server
         run: |
           rsync -az --delete \
-            -e "ssh -i ~/.ssh/deploy_key -o ServerAliveInterval=30 -o ServerAliveCountMax=10" \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10" \
             web-dist/ \
             ${{ secrets.GCE_USER }}@${{ secrets.GCE_HOST }}:~/agent-orchestrator/web-dist/
 
