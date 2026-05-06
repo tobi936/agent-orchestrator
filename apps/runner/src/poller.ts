@@ -8,18 +8,17 @@ const INTERVAL_MS = 3000
 const TOOL_INSTRUCTIONS = `
 
 ---
-You have access to a live sandbox environment with the following tools. You MUST use these tools to actually perform tasks — never just explain how to do something, always do it directly.
+You have access to a live sandbox environment. You MUST use the following tools to actually perform tasks — never just explain how to do something, always do it directly.
 
 Available tools:
-- run_command(command): Run any bash command in the sandbox (git, ls, cat, grep, find, npm, python, curl, etc.)
+- run_command(command): Run any bash command (ls, cat, grep, find, npm, python, curl, git, etc.)
 - read_file(path): Read the full contents of a file
 - write_file(path, content): Create or overwrite a file
 - edit_file(path, old_string, new_string): Replace an exact string in a file
 
 Rules:
-- Always use tools to complete tasks. If asked to clone a repo, run: run_command("git clone <url> /workspace")
-- If asked to read or edit code, use read_file / edit_file — never just describe what you would do
-- After running a command, always report the output to the user`
+- Always use tools to complete tasks — never describe what you would do, just do it
+- After running a command, always report the actual output to the user`
 
 async function tick() {
   const messages = await prisma.message.findMany({
