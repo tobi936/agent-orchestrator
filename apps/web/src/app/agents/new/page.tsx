@@ -7,6 +7,7 @@ export default function NewAgentPage() {
   const router = useRouter()
   const [name, setName] = useState('')
   const [systemPrompt, setSystemPrompt] = useState('')
+  const [command, setCommand] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -18,7 +19,7 @@ export default function NewAgentPage() {
       const res = await fetch('/api/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, systemPrompt }),
+        body: JSON.stringify({ name, systemPrompt, command: command.trim() || undefined }),
       })
       if (!res.ok) throw new Error()
       router.push('/')
@@ -90,6 +91,20 @@ export default function NewAgentPage() {
                 rows={6}
                 className="w-full bg-white border border-[#EAE9E4] rounded-lg px-3.5 py-2.5 text-sm text-[#0E0E0C] placeholder:text-[#C8C7C3] focus:outline-none focus:border-[#3D3DF5] focus:ring-1 focus:ring-[#3D3DF5]/20 transition-colors resize-none font-sans"
               />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-[#666] mb-1.5 uppercase tracking-wider">
+                Process Command <span className="text-[#C8C7C3] normal-case font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={command}
+                onChange={(e) => setCommand(e.target.value)}
+                placeholder='e.g. python -m myagent --config "setup.json"'
+                className="w-full bg-white border border-[#EAE9E4] rounded-lg px-3.5 py-2.5 text-sm text-[#0E0E0C] placeholder:text-[#C8C7C3] focus:outline-none focus:border-[#3D3DF5] focus:ring-1 focus:ring-[#3D3DF5]/20 transition-colors font-mono"
+              />
+              <p className="text-[11px] text-[#AAA] mt-1.5">If set, runs in an E2B sandbox on start. Leave blank for AI provider mode.</p>
             </div>
 
             {error && (
