@@ -70,15 +70,22 @@ async function runToolLoop(
     messages.push(message)
 
     if (finish_reason !== 'tool_calls' || !message.tool_calls?.length) {
+      if (message.content) {
+        log?.(`[THINK]${message.content}`)
+      }
       return message.content ?? ''
+    }
+
+    if (message.content) {
+      log?.(`[THINK]${message.content}`)
     }
 
     for (const tc of message.tool_calls) {
       const input = JSON.parse(tc.function.arguments) as Record<string, string>
       log?.(`[TOOL]${JSON.stringify({ type: 'call', name: tc.function.name, input })}`)
       const result = await executeTool(tc.function.name, input, sandbox!)
-      const ok = !result.startsWith('Error:')
-      log?.(`[TOOL]${JSON.stringify({ type: 'result', name: tc.function.name, ok, result: result.slice(0, 500) })}`)
+      const ok = !result.startsWith('Error')
+      log?.(`[TOOL]${JSON.stringify({ type: 'result', name: tc.function.name, ok, result: result.slice(0, 2000) })}`)
       messages.push({ role: 'tool', tool_call_id: tc.id, content: result })
     }
   }
