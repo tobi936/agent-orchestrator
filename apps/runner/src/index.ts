@@ -4,15 +4,13 @@ import { Sandbox } from 'e2b'
 import { prisma } from './db'
 import { startPoller } from './poller'
 import { appendLog, clearBuffer, getBuffer, onLog, offLog } from './logs'
+import { sandboxes } from './sandboxes'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
 
 app.use(cors())
 app.use(express.json())
-
-// Live sandboxes keyed by agent id
-const sandboxes = new Map<string, Sandbox>()
 
 // ── Start agent ───────────────────────────────────────────────────────────────
 app.post('/agents/:id/start', async (req, res) => {
