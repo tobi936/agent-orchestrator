@@ -2,40 +2,42 @@
    provider      = "prisma-client-js"
    binaryTargets = ["native", "linux-musl", "linux-musl-openssl-3.0.x"]
  }
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-model Agent {
-  id           String      @id @default(uuid())
-  name         String
-  systemPrompt String
-  command      String?
-  repoUrl      String?
-  status       AgentStatus @default(STOPPED)
-  containerId  String?
-  createdAt    DateTime    @default(now())
-  messages     Message[]
-}
-
-enum AgentStatus {
-  STOPPED
-  RUNNING
-}
-
-model Message {
-  id        String           @id @default(uuid())
-  agentId   String
-  agent     Agent            @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  direction MessageDirection
-  content   String
-  processed Boolean          @default(false)
-  createdAt DateTime         @default(now())
-}
-
-enum MessageDirection {
-  INBOX
-  OUTBOX
-}
+ 
+ datasource db {
+   provider = "postgresql"
+   url      = env("DATABASE_URL")
+ }
+ 
+ model Agent {
+   id           String      @id @default(uuid())
+   name         String
+   systemPrompt String
+   provider     String      @default("ollama")
+   model        String      @default("gpt-oss:20b")
+   command      String?
+   repoUrl      String?
+   status       AgentStatus @default(STOPPED)
+   containerId  String?
+   createdAt    DateTime    @default(now())
+   messages     Message[]
+ }
+ 
+ enum AgentStatus {
+   STOPPED
+   RUNNING
+ }
+ 
+ model Message {
+   id        String           @id @default(uuid())
+   agentId   String
+   agent     Agent            @relation(fields: [agentId], references: [id], onDelete: Cascade)
+   direction MessageDirection
+   content   String
+   processed Boolean          @default(false)
+   createdAt DateTime         @default(now())
+ }
+ 
+ enum MessageDirection {
+   INBOX
+   OUTBOX
+ }
