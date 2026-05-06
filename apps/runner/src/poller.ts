@@ -26,7 +26,7 @@ async function tick() {
     try {
       const provider = createProvider({ provider: agent.provider, model: agent.model })
       const sandbox = sandboxes.get(agent.id)
-      reply = await provider.chat(agent.systemPrompt, msg.content, sandbox)
+      reply = await provider.chat(agent.systemPrompt, msg.content, sandbox, (line) => appendLog(agent.id, line))
       appendLog(agent.id, `[${new Date().toISOString()}] Reply generated (${reply.length} chars)`)
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err)
