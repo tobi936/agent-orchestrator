@@ -9,6 +9,7 @@
     "generate": "prisma generate --schema=../../prisma/schema.prisma"
   },
   "dependencies": {
+    "@prisma/client": "^5.22.0",
     "cors": "^2.8.5",
     "express": "^4.21.2"
   },
