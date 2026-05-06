@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['dockerode', '@prisma/client'],
+  serverExternalPackages: ['@prisma/client'],
 }
 
 export default nextConfig
