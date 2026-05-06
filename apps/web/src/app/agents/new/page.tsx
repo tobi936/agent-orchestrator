@@ -14,7 +14,7 @@
    const [name, setName] = useState('')
    const [systemPrompt, setSystemPrompt] = useState('')
    const [provider, setProvider] = useState<typeof PROVIDERS[number]['value']>('ollama')
-   const [model, setModel] = useState(PROVIDERS[0].defaultModel)
+   const [model, setModel] = useState<string>(PROVIDERS[0].defaultModel)
    const [command, setCommand] = useState('')
    const [repoUrl, setRepoUrl] = useState('')
    const [loading, setLoading] = useState(false)
