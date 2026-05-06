@@ -25,11 +25,12 @@ interface Message {
 
 interface ToolEvent {
   id: string
-  type: 'call' | 'result'
-  name: string
+  type: 'call' | 'result' | 'log' | 'think'
+  name?: string
   input?: Record<string, string>
   result?: string
   ok?: boolean
+  text?: string
   ts: number
 }
 
@@ -212,9 +213,39 @@ function AgentsSidebar({
 
 function ToolEventRow({ event }: { event: ToolEvent }) {
   const [expanded, setExpanded] = useState(false)
+
+  if (event.type === 'log') {
+    return (
+      <div className="flex items-start gap-2 px-1">
+        <span className="w-4 h-4 rounded flex items-center justify-center bg-hover text-ink-4 shrink-0 mt-0.5">
+          <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><circle cx="4.5" cy="4.5" r="1.5" fill="currentColor"/></svg>
+        </span>
+        <span className="text-[11px] font-mono text-ink-4 leading-tight break-all">{event.text}</span>
+      </div>
+    )
+  }
+
+  if (event.type === 'think') {
+    return (
+      <div className="flex items-start gap-2 px-1">
+        <span className="w-4 h-4 rounded flex items-center justify-center bg-purple-100 dark:bg-purple-900/30 text-purple-500 shrink-0 mt-0.5">
+          <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M4.5 1.5a3 3 0 1 1 0 6 3 3 0 0 1 0-6z" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 3.5v1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="4.5" cy="6.2" r="0.4" fill="currentColor"/></svg>
+        </span>
+        <button onClick={() => setExpanded((v) => !v)} className="text-left min-w-0 flex-1">
+          <span className="text-[11px] font-mono text-purple-500 dark:text-purple-400 italic truncate block hover:text-purple-400 transition-colors">
+            thinking{expanded ? '' : ': ' + (event.text ?? '').slice(0, 60) + ((event.text?.length ?? 0) > 60 ? '…' : '')}
+          </span>
+          {expanded && (
+            <p className="mt-1 text-[11px] text-ink-3 leading-relaxed whitespace-pre-wrap">{event.text}</p>
+          )}
+        </button>
+      </div>
+    )
+  }
+
   const isCall = event.type === 'call'
   const label = isCall
-    ? `${event.name}${event.input ? ': ' + Object.values(event.input).join(', ').slice(0, 60) : ''}`
+    ? `${event.name}: ${Object.values(event.input ?? {}).join(', ').slice(0, 60)}`
     : `${event.name} — ${event.ok ? 'ok' : 'error'}`
 
   return (
@@ -234,20 +265,17 @@ function ToolEventRow({ event }: { event: ToolEvent }) {
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="text-left w-full"
-        >
+        <button onClick={() => setExpanded((v) => !v)} className="text-left w-full">
           <span className="text-[11px] font-mono text-ink-3 hover:text-ink-2 transition-colors truncate block">{label}</span>
         </button>
-        {expanded && !isCall && event.result && (
-          <pre className="mt-1 text-[10px] font-mono text-ink-3 bg-raised border border-line rounded p-2 whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
-            {event.result}
+        {expanded && isCall && event.input && (
+          <pre className="mt-1 text-[10px] font-mono text-ink-3 bg-raised border border-line rounded p-2 whitespace-pre-wrap break-all max-h-40 overflow-y-auto">
+            {JSON.stringify(event.input, null, 2)}
           </pre>
         )}
-        {expanded && isCall && event.input && (
-          <pre className="mt-1 text-[10px] font-mono text-ink-3 bg-raised border border-line rounded p-2 whitespace-pre-wrap break-all">
-            {JSON.stringify(event.input, null, 2)}
+        {expanded && !isCall && event.result && (
+          <pre className="mt-1 text-[10px] font-mono text-ink-3 bg-raised border border-line rounded p-2 whitespace-pre-wrap break-all max-h-64 overflow-y-auto">
+            {event.result}
           </pre>
         )}
       </div>
@@ -380,9 +408,11 @@ function ChatPanel({
             <div className="px-3 py-1.5 border-b border-line bg-raised flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
               <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Activity</span>
-              <span className="ml-auto text-[10px] font-mono text-ink-4">{toolEvents.length}</span>
+              <span className="ml-auto text-[10px] font-mono text-ink-4">
+                {toolEvents.filter(e => e.type === 'call').length} calls · {toolEvents.length} events
+              </span>
             </div>
-            <div className="px-3 py-2 space-y-1.5">
+            <div className="px-3 py-2 space-y-1.5 max-h-80 overflow-y-auto">
               {toolEvents.map((ev) => (
                 <ToolEventRow key={ev.id} event={ev} />
               ))}
@@ -741,11 +771,19 @@ export default function Dashboard() {
     es.onmessage = (e) => {
       try {
         const line: string = JSON.parse(e.data)
-        if (!line.startsWith('[TOOL]')) return
-        const payload = JSON.parse(line.slice(6)) as { type: 'call' | 'result'; name: string; input?: Record<string, string>; result?: string; ok?: boolean }
         const id = `te-${++toolEventCounter.current}`
-        setToolEvents((prev) => [...prev.slice(-99), { id, ts: Date.now(), ...payload }])
-      } catch { /* ignore non-JSON or non-tool lines */ }
+        const ts = Date.now()
+
+        if (line.startsWith('[TOOL]')) {
+          const payload = JSON.parse(line.slice(6)) as { type: 'call' | 'result'; name: string; input?: Record<string, string>; result?: string; ok?: boolean }
+          setToolEvents((prev) => [...prev.slice(-199), { id, ts, ...payload }])
+        } else if (line.startsWith('[THINK]')) {
+          const text = line.slice(7).trim()
+          if (text) setToolEvents((prev) => [...prev.slice(-199), { id, ts, type: 'think', text }])
+        } else if (line.trim()) {
+          setToolEvents((prev) => [...prev.slice(-199), { id, ts, type: 'log', text: line.trim() }])
+        }
+      } catch { /* ignore */ }
     }
     return () => es.close()
   }, [selectedAgentId, agents])
