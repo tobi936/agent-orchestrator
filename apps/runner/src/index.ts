@@ -53,14 +53,20 @@ async function runStartup(
 
   try {
     if (repoUrl) {
+      appendLog(agentId, `[${ts()}] Ensuring git is available…`)
+      await sandbox.commands.run('which git || (apt-get update -qq && apt-get install -y -qq git)', {
+        timeoutMs: 60_000,
+        onStderr: (d) => appendLog(agentId, d),
+      })
+
       appendLog(agentId, `[${ts()}] Cloning ${repoUrl}…`)
-      const clone = await sandbox.commands.run(`git clone ${repoUrl} /workspace`, {
+      const clone = await sandbox.commands.run(`git clone --depth=1 "${repoUrl}" /workspace`, {
         timeoutMs: 120_000,
         onStdout: (d) => appendLog(agentId, d),
         onStderr: (d) => appendLog(agentId, d),
       })
       if (clone.exitCode !== 0) {
-        appendLog(agentId, `[${ts()}] git clone failed (code ${clone.exitCode})`)
+        appendLog(agentId, `[${ts()}] git clone failed (exit code ${clone.exitCode})`)
       } else {
         appendLog(agentId, `[${ts()}] Repo cloned to /workspace`)
       }
