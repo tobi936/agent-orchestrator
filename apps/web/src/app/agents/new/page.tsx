@@ -4,8 +4,7 @@
  import { useRouter } from 'next/navigation'
  
  const PROVIDERS = [
-   { value: 'ollama',    label: 'Ollama Cloud',  defaultModel: 'gpt-oss:20b',              hint: 'e.g. gpt-oss:20b, gpt-oss:120b, deepseek-v3.1:671b, 
-qwen3-coder:480b' },
+   { value: 'ollama',    label: 'Ollama Cloud',  defaultModel: 'gpt-oss:20b',              hint: 'e.g. gpt-oss:20b, gpt-oss:120b, deepseek-v3.1:671b, qwen3-coder:480b' },
    { value: 'anthropic', label: 'Anthropic',     defaultModel: 'claude-haiku-4-5-20251001', hint: 'e.g. claude-haiku-4-5-20251001, claude-sonnet-4-5' },
    { value: 'openai',    label: 'OpenAI',        defaultModel: 'gpt-4o-mini',               hint: 'e.g. gpt-4o, gpt-4o-mini, gpt-4.1' },
  ] as const
