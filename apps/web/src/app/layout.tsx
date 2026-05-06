@@ -11,10 +11,16 @@ export const metadata: Metadata = {
   description: 'Manage and run AI agents',
 }
 
+// Runs before hydration to avoid dark-mode flash
+const themeScript = `try{const t=localStorage.getItem('theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')}catch{}`
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className="h-screen overflow-hidden antialiased font-sans text-[#0E0E0C] bg-[#FCFCFB]">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className="h-screen overflow-hidden antialiased font-sans text-ink">
         {children}
         <Analytics />
       </body>

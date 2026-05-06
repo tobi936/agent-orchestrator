@@ -38,9 +38,9 @@ export default function NewAgentPage() {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* TopBar */}
-      <header className="h-11 flex items-center justify-between px-4 border-b border-[#EAE9E4] bg-[#FAFAF8] shrink-0">
+      <header className="h-11 flex items-center justify-between px-4 border-b border-line bg-surface shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded-[5px] bg-[#3D3DF5] flex items-center justify-center">
+          <div className="w-6 h-6 rounded-[5px] bg-accent flex items-center justify-center">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
               <rect x="1" y="1" width="4" height="4" rx="1" fill="white" fillOpacity="0.9" />
               <rect x="7" y="1" width="4" height="4" rx="1" fill="white" fillOpacity="0.6" />
@@ -50,29 +50,29 @@ export default function NewAgentPage() {
           </div>
           <button
             onClick={() => router.push('/')}
-            className="text-sm font-semibold tracking-tight text-[#0E0E0C] hover:text-[#3D3DF5] transition-colors"
+            className="text-sm font-semibold tracking-tight text-ink hover:text-accent-fg transition-colors"
           >
             Orchestrator
           </button>
-          <span className="h-3.5 w-px bg-[#EAE9E4]" />
-          <span className="text-[11px] text-[#AAA]">New Agent</span>
+          <span className="h-3.5 w-px bg-line" />
+          <span className="text-[11px] text-ink-3">New Agent</span>
         </div>
-        <div className="w-7 h-7 rounded-full bg-[#EAE9E4] flex items-center justify-center">
-          <span className="text-[11px] font-semibold text-[#666]">U</span>
+        <div className="w-7 h-7 rounded-full bg-hover border border-line flex items-center justify-center">
+          <span className="text-[11px] font-semibold text-ink-2">U</span>
         </div>
       </header>
 
-      {/* Content */}
+      {/* Form */}
       <div className="flex-1 flex items-start justify-center pt-16 px-4 overflow-y-auto">
         <div className="w-full max-w-[440px]">
           <div className="mb-7">
-            <h1 className="text-lg font-semibold text-[#0E0E0C] tracking-tight">New Agent</h1>
-            <p className="text-sm text-[#AAA] mt-0.5">Runs in an isolated E2B sandbox</p>
+            <h1 className="text-lg font-semibold text-ink tracking-tight">New Agent</h1>
+            <p className="text-sm text-ink-3 mt-0.5">Runs in an isolated E2B sandbox</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-[11px] font-medium text-[#666] mb-1.5 uppercase tracking-wider">
+              <label className="block text-[11px] font-medium text-ink-3 mb-1.5 uppercase tracking-wider">
                 Name
               </label>
               <input
@@ -81,12 +81,12 @@ export default function NewAgentPage() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Research Assistant"
                 required
-                className="w-full bg-white border border-[#EAE9E4] rounded-lg px-3.5 py-2.5 text-sm text-[#0E0E0C] placeholder:text-[#C8C7C3] focus:outline-none focus:border-[#3D3DF5] focus:ring-1 focus:ring-[#3D3DF5]/20 transition-colors"
+                className="w-full bg-raised border border-line rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-medium text-[#666] mb-1.5 uppercase tracking-wider">
+              <label className="block text-[11px] font-medium text-ink-3 mb-1.5 uppercase tracking-wider">
                 System Prompt
               </label>
               <textarea
@@ -95,15 +95,15 @@ export default function NewAgentPage() {
                 placeholder="You are a helpful assistant that…"
                 required
                 rows={5}
-                className="w-full bg-white border border-[#EAE9E4] rounded-lg px-3.5 py-2.5 text-sm text-[#0E0E0C] placeholder:text-[#C8C7C3] focus:outline-none focus:border-[#3D3DF5] focus:ring-1 focus:ring-[#3D3DF5]/20 transition-colors resize-none font-sans"
+                className="w-full bg-raised border border-line rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent transition-colors resize-none font-sans"
               />
             </div>
 
-            <div className="border-t border-[#EAE9E4] pt-4 space-y-4">
-              <p className="text-[11px] font-medium text-[#AAA] uppercase tracking-wider">Sandbox setup</p>
+            <div className="border-t border-line pt-4 space-y-4">
+              <p className="text-[11px] font-medium text-ink-3 uppercase tracking-wider">Sandbox setup</p>
 
               <div>
-                <label className="block text-[11px] font-medium text-[#666] mb-1.5 uppercase tracking-wider">
+                <label className="block text-[11px] font-medium text-ink-3 mb-1.5 uppercase tracking-wider">
                   GitHub Repo
                 </label>
                 <input
@@ -111,13 +111,13 @@ export default function NewAgentPage() {
                   value={repoUrl}
                   onChange={(e) => setRepoUrl(e.target.value)}
                   placeholder="https://github.com/you/your-repo"
-                  className="w-full bg-white border border-[#EAE9E4] rounded-lg px-3.5 py-2.5 text-sm text-[#0E0E0C] placeholder:text-[#C8C7C3] focus:outline-none focus:border-[#3D3DF5] focus:ring-1 focus:ring-[#3D3DF5]/20 transition-colors"
+                  className="w-full bg-raised border border-line rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent transition-colors"
                 />
-                <p className="text-[11px] text-[#AAA] mt-1">Cloned to /workspace on start</p>
+                <p className="text-[11px] text-ink-3 mt-1">Cloned to /workspace on start</p>
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-[#666] mb-1.5 uppercase tracking-wider">
+                <label className="block text-[11px] font-medium text-ink-3 mb-1.5 uppercase tracking-wider">
                   Command
                 </label>
                 <input
@@ -125,14 +125,14 @@ export default function NewAgentPage() {
                   value={command}
                   onChange={(e) => setCommand(e.target.value)}
                   placeholder="e.g. python main.py"
-                  className="w-full bg-white border border-[#EAE9E4] rounded-lg px-3.5 py-2.5 text-sm text-[#0E0E0C] placeholder:text-[#C8C7C3] focus:outline-none focus:border-[#3D3DF5] focus:ring-1 focus:ring-[#3D3DF5]/20 transition-colors font-mono"
+                  className="w-full bg-raised border border-line rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent transition-colors font-mono"
                 />
-                <p className="text-[11px] text-[#AAA] mt-1">Runs in the sandbox after repo is cloned</p>
+                <p className="text-[11px] text-ink-3 mt-1">Runs in the sandbox after repo is cloned</p>
               </div>
             </div>
 
             {error && (
-              <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-md px-3 py-2">
+              <p className="text-xs text-red-500 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/40 rounded-md px-3 py-2">
                 {error}
               </p>
             )}
@@ -141,14 +141,14 @@ export default function NewAgentPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-[#3D3DF5] hover:bg-[#3030e0] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                className="bg-accent hover:opacity-90 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-opacity"
               >
                 {loading ? 'Creating…' : 'Create Agent'}
               </button>
               <button
                 type="button"
                 onClick={() => router.push('/')}
-                className="text-sm font-medium text-[#888] hover:text-[#0E0E0C] px-4 py-2 rounded-lg hover:bg-[#F2F2F0] transition-colors"
+                className="text-sm font-medium text-ink-3 hover:text-ink px-4 py-2 rounded-lg hover:bg-hover transition-colors"
               >
                 Cancel
               </button>

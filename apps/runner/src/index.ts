@@ -40,7 +40,6 @@ app.post('/agents/:id/start', async (req, res) => {
   })
   appendLog(agent.id, `[${ts()}] Sandbox ${sandbox.sandboxId} ready`)
 
-  // Run startup sequence in background
   runStartup(agent.id, agent.repoUrl ?? null, agent.command ?? null, sandbox)
 
   return res.json(await prisma.agent.findUnique({ where: { id: agent.id } }))
@@ -85,7 +84,6 @@ async function runStartup(
     const msg = err instanceof Error ? err.message : String(err)
     appendLog(agentId, `[${ts()}] ERROR: ${msg}`)
   } finally {
-    // Only mark stopped if process exited on its own (not killed via stop endpoint)
     if (sandboxes.has(agentId) && command) {
       sandboxes.delete(agentId)
       prisma.agent.update({ where: { id: agentId }, data: { status: 'STOPPED' } }).catch(() => {})
