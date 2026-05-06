@@ -3,8 +3,7 @@
  WORKDIR /app
  COPY prisma ./prisma
  COPY apps/runner/package*.json ./apps/runner/
- RUN cd apps/runner && npm install --ignore-scripts && ./node_modules/.bin/prisma generate 
---schema=../../prisma/schema.prisma
+ RUN cd apps/runner && npm install --ignore-scripts && ./node_modules/.bin/prisma generate --schema=../../prisma/schema.prisma
  
  FROM node:22-slim AS builder
  WORKDIR /app
