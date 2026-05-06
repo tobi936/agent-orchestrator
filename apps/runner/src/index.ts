@@ -54,10 +54,17 @@ async function runStartup(
   try {
     if (repoUrl) {
       appendLog(agentId, `[${ts()}] Ensuring git is available…`)
-      await sandbox.commands.run('which git || (apt-get update -qq && apt-get install -y -qq git)', {
-        timeoutMs: 60_000,
-        onStderr: (d) => appendLog(agentId, d),
-      })
+      const gitCheck = await sandbox.commands.run('which git', { timeoutMs: 10_000 })
+      if (gitCheck.exitCode !== 0) {
+        // Try apt-get (Debian/Ubuntu), fall back to apk (Alpine)
+        const install = await sandbox.commands.run(
+          'apt-get update -qq && apt-get install -y -qq git || apk add --no-cache git',
+          { timeoutMs: 60_000, onStderr: (d) => appendLog(agentId, d) },
+        )
+        if (install.exitCode !== 0) {
+          throw new Error(`git installation failed (exit code ${install.exitCode})`)
+        }
+      }
 
       await sandbox.commands.run('mkdir -p /workspace', { timeoutMs: 10_000 })
       appendLog(agentId, `[${ts()}] Cloning ${repoUrl}…`)
