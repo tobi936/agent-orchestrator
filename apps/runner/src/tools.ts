@@ -86,12 +86,15 @@ export async function executeTool(
       let stdout = ''
       let stderr = ''
       const result = await sandbox.commands.run(input.command, {
-        timeoutMs: 30_000,
+        timeoutMs: 300_000,
         onStdout: (d) => { stdout += d },
         onStderr: (d) => { stderr += d },
       })
-      const out = stdout + (stderr ? `\n[stderr] ${stderr}` : '')
-      return out || `(exit code ${result.exitCode})`
+      const out = (stdout + (stderr ? `\n[stderr] ${stderr}` : '')).trim()
+      if (result.exitCode !== 0) {
+        return `Error (exit ${result.exitCode}): ${out || '(no output)'}`
+      }
+      return out || '(no output)'
     }
 
     return `Unknown tool: ${name}`
