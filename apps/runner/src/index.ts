@@ -11,7 +11,7 @@ const PORT = process.env.PORT ?? 3001
 app.use(cors())
 app.use(express.json())
 
-// Track live sandboxes by agent id
+// Live sandboxes keyed by agent id
 const sandboxes = new Map<string, Sandbox>()
 
 // ── Start agent ───────────────────────────────────────────────────────────────
@@ -21,54 +21,75 @@ app.post('/agents/:id/start', async (req, res) => {
   if (agent.status === 'RUNNING') return res.status(409).json({ error: 'Already running' })
 
   clearBuffer(agent.id)
-
   const ts = () => new Date().toISOString()
 
-  if (agent.command) {
-    let sandbox: Sandbox
-    try {
-      appendLog(agent.id, `[${ts()}] Creating E2B sandbox…`)
-      sandbox = await Sandbox.create({ timeoutMs: 3_600_000 }) // max 1h
-      sandboxes.set(agent.id, sandbox)
-
-      await prisma.agent.update({
-        where: { id: agent.id },
-        data: { status: 'RUNNING', containerId: sandbox.sandboxId },
-      })
-
-      appendLog(agent.id, `[${ts()}] Sandbox ${sandbox.sandboxId} ready — running: ${agent.command}`)
-
-      // Fire-and-forget: run command and stream output
-      sandbox.commands.run(agent.command, {
-        timeoutMs: 3_600_000,
-        onStdout: (data) => appendLog(agent.id, data.line),
-        onStderr: (data) => appendLog(agent.id, `[stderr] ${data.line}`),
-      }).then((result) => {
-        appendLog(agent.id, `[${ts()}] Process exited (code ${result.exitCode})`)
-        sandboxes.delete(agent.id)
-        prisma.agent.update({ where: { id: agent.id }, data: { status: 'STOPPED' } }).catch(() => {})
-      }).catch((err: Error) => {
-        appendLog(agent.id, `[${ts()}] ERROR: ${err.message}`)
-        sandboxes.delete(agent.id)
-        prisma.agent.update({ where: { id: agent.id }, data: { status: 'STOPPED' } }).catch(() => {})
-      })
-
-      return res.json(await prisma.agent.findUnique({ where: { id: agent.id } }))
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      appendLog(agent.id, `[${ts()}] Failed to create sandbox: ${msg}`)
-      return res.status(500).json({ error: msg })
-    }
+  let sandbox: Sandbox
+  try {
+    appendLog(agent.id, `[${ts()}] Creating E2B sandbox…`)
+    sandbox = await Sandbox.create({ timeoutMs: 3_600_000 })
+    sandboxes.set(agent.id, sandbox)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    appendLog(agent.id, `[${ts()}] Failed to create sandbox: ${msg}`)
+    return res.status(500).json({ error: msg })
   }
 
-  // AI-provider mode (no command)
-  const updated = await prisma.agent.update({
+  await prisma.agent.update({
     where: { id: agent.id },
-    data: { status: 'RUNNING' },
+    data: { status: 'RUNNING', containerId: sandbox.sandboxId },
   })
-  appendLog(agent.id, `[${ts()}] Agent "${agent.name}" started (AI mode)`)
-  return res.json(updated)
+  appendLog(agent.id, `[${ts()}] Sandbox ${sandbox.sandboxId} ready`)
+
+  runStartup(agent.id, agent.repoUrl ?? null, agent.command ?? null, sandbox)
+
+  return res.json(await prisma.agent.findUnique({ where: { id: agent.id } }))
 })
+
+async function runStartup(
+  agentId: string,
+  repoUrl: string | null,
+  command: string | null,
+  sandbox: Sandbox,
+) {
+  const ts = () => new Date().toISOString()
+
+  try {
+    if (repoUrl) {
+      appendLog(agentId, `[${ts()}] Cloning ${repoUrl}…`)
+      const clone = await sandbox.commands.run(`git clone ${repoUrl} /workspace`, {
+        timeoutMs: 120_000,
+        onStdout: (d) => appendLog(agentId, d.line),
+        onStderr: (d) => appendLog(agentId, d.line),
+      })
+      if (clone.exitCode !== 0) {
+        appendLog(agentId, `[${ts()}] git clone failed (code ${clone.exitCode})`)
+      } else {
+        appendLog(agentId, `[${ts()}] Repo cloned to /workspace`)
+      }
+    }
+
+    if (command) {
+      appendLog(agentId, `[${ts()}] Running: ${command}`)
+      const result = await sandbox.commands.run(command, {
+        timeoutMs: 3_600_000,
+        cwd: repoUrl ? '/workspace' : undefined,
+        onStdout: (d) => appendLog(agentId, d.line),
+        onStderr: (d) => appendLog(agentId, `[stderr] ${d.line}`),
+      })
+      appendLog(agentId, `[${ts()}] Process exited (code ${result.exitCode})`)
+    } else {
+      appendLog(agentId, `[${ts()}] Sandbox ready — send messages to interact`)
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    appendLog(agentId, `[${ts()}] ERROR: ${msg}`)
+  } finally {
+    if (sandboxes.has(agentId) && command) {
+      sandboxes.delete(agentId)
+      prisma.agent.update({ where: { id: agentId }, data: { status: 'STOPPED' } }).catch(() => {})
+    }
+  }
+}
 
 // ── Stop agent ────────────────────────────────────────────────────────────────
 app.post('/agents/:id/stop', async (req, res) => {
