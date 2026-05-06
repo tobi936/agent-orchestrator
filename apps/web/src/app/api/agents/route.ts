@@ -7,10 +7,17 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { name, systemPrompt } = await req.json()
+  const { name, systemPrompt, command, repoUrl } = await req.json()
   if (!name || !systemPrompt) {
     return NextResponse.json({ error: 'name and systemPrompt required' }, { status: 400 })
   }
-  const agent = await prisma.agent.create({ data: { name, systemPrompt } })
+  const agent = await prisma.agent.create({
+    data: {
+      name,
+      systemPrompt,
+      command: command?.trim() || null,
+      repoUrl: repoUrl?.trim() || null,
+    },
+  })
   return NextResponse.json(agent, { status: 201 })
 }
