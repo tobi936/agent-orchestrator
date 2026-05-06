@@ -12,6 +12,7 @@ model Agent {
   name         String
   systemPrompt String
   command      String?
+  repoUrl      String?
   status       AgentStatus @default(STOPPED)
   containerId  String?
   createdAt    DateTime    @default(now())

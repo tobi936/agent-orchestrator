@@ -7,6 +7,8 @@ export default function NewAgentPage() {
   const router = useRouter()
   const [name, setName] = useState('')
   const [systemPrompt, setSystemPrompt] = useState('')
+  const [command, setCommand] = useState('')
+  const [repoUrl, setRepoUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -18,7 +20,12 @@ export default function NewAgentPage() {
       const res = await fetch('/api/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, systemPrompt }),
+        body: JSON.stringify({
+          name,
+          systemPrompt,
+          command: command.trim() || undefined,
+          repoUrl: repoUrl.trim() || undefined,
+        }),
       })
       if (!res.ok) throw new Error()
       router.push('/')
@@ -60,7 +67,7 @@ export default function NewAgentPage() {
         <div className="w-full max-w-[440px]">
           <div className="mb-7">
             <h1 className="text-lg font-semibold text-ink tracking-tight">New Agent</h1>
-            <p className="text-sm text-ink-3 mt-0.5">Configure a new AI agent</p>
+            <p className="text-sm text-ink-3 mt-0.5">Runs in an isolated E2B sandbox</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -87,9 +94,41 @@ export default function NewAgentPage() {
                 onChange={(e) => setSystemPrompt(e.target.value)}
                 placeholder="You are a helpful assistant that…"
                 required
-                rows={6}
+                rows={5}
                 className="w-full bg-raised border border-line rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent transition-colors resize-none font-sans"
               />
+            </div>
+
+            <div className="border-t border-line pt-4 space-y-4">
+              <p className="text-[11px] font-medium text-ink-3 uppercase tracking-wider">Sandbox setup</p>
+
+              <div>
+                <label className="block text-[11px] font-medium text-ink-3 mb-1.5 uppercase tracking-wider">
+                  GitHub Repo
+                </label>
+                <input
+                  type="text"
+                  value={repoUrl}
+                  onChange={(e) => setRepoUrl(e.target.value)}
+                  placeholder="https://github.com/you/your-repo"
+                  className="w-full bg-raised border border-line rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent transition-colors"
+                />
+                <p className="text-[11px] text-ink-3 mt-1">Cloned to /workspace on start</p>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-ink-3 mb-1.5 uppercase tracking-wider">
+                  Command
+                </label>
+                <input
+                  type="text"
+                  value={command}
+                  onChange={(e) => setCommand(e.target.value)}
+                  placeholder="e.g. python main.py"
+                  className="w-full bg-raised border border-line rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent transition-colors font-mono"
+                />
+                <p className="text-[11px] text-ink-3 mt-1">Runs in the sandbox after repo is cloned</p>
+              </div>
             </div>
 
             {error && (
