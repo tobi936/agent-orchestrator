@@ -84,8 +84,8 @@ function TopBar({ isDark, onToggleDark }: { isDark: boolean; onToggleDark: () =>
           </svg>
         </div>
         <span className="text-sm font-semibold tracking-tight text-ink">Orchestrator</span>
-        <span className="h-3.5 w-px bg-line" />
-        <span className="text-[11px] font-medium text-ink-3 px-1.5 py-0.5 bg-hover rounded border border-line">
+        <span className="h-3.5 w-px bg-line hidden sm:block" />
+        <span className="hidden sm:inline text-[11px] font-medium text-ink-3 px-1.5 py-0.5 bg-hover rounded border border-line">
           local
         </span>
       </div>
@@ -113,12 +113,14 @@ function AgentsSidebar({
   onSelect,
   filter,
   onFilterChange,
+  mobileVisible,
 }: {
   agents: Agent[]
   selectedId: string | null
   onSelect: (id: string) => void
   filter: 'all' | 'running' | 'idle'
   onFilterChange: (f: 'all' | 'running' | 'idle') => void
+  mobileVisible: boolean
 }) {
   const router = useRouter()
   const runningCount = agents.filter((a) => a.status === 'RUNNING').length
@@ -130,7 +132,7 @@ function AgentsSidebar({
   })
 
   return (
-    <div className="w-[240px] shrink-0 flex flex-col border-r border-line bg-surface overflow-hidden">
+    <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex w-full md:w-[240px] shrink-0 flex-col border-r border-line bg-surface overflow-hidden`}>
       <div className="px-3 pt-3 pb-2 shrink-0">
         <div className="flex items-center justify-between mb-2.5">
           <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Agents</span>
@@ -204,12 +206,14 @@ function ChatPanel({
   onSend,
   onToggle,
   actionLoading,
+  mobileVisible,
 }: {
   agent: Agent | null
   messages: Message[]
   onSend: (content: string) => void
   onToggle: () => void
   actionLoading: boolean
+  mobileVisible: boolean
 }) {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -227,20 +231,21 @@ function ChatPanel({
 
   if (!agent) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex flex-1 items-center justify-center`}>
         <div className="text-center select-none">
           <div className="w-10 h-10 rounded-xl bg-accent-bg border border-accent-bdr flex items-center justify-center mx-auto mb-3">
             <div className="w-4 h-4 rounded-[3px] bg-accent opacity-30" />
           </div>
           <p className="text-sm font-medium text-ink-2">Select an agent</p>
-          <p className="text-xs text-ink-3 mt-0.5">Pick one from the left to start</p>
+          <p className="text-xs text-ink-3 mt-0.5 hidden md:block">Pick one from the left to start</p>
+          <p className="text-xs text-ink-3 mt-0.5 md:hidden">Pick one from the Agents tab</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex-1 min-w-0 flex flex-col border-r border-line">
+    <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex flex-1 min-w-0 flex-col border-r border-line`}>
       <div className="h-11 px-4 flex items-center justify-between border-b border-line shrink-0 bg-surface">
         <div className="flex items-center gap-2">
           <StatusDot status={agent.status} />
@@ -339,11 +344,13 @@ function InboxOutboxPanel({
   agentName,
   agentsRunning,
   agentsTotal,
+  mobileVisible,
 }: {
   messages: Message[]
   agentName: string | null
   agentsRunning: number
   agentsTotal: number
+  mobileVisible: boolean
 }) {
   const [tab, setTab] = useState<'inbox' | 'outbox' | 'infra'>('inbox')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -355,7 +362,7 @@ function InboxOutboxPanel({
   const selectedMsg = messages.find((m) => m.id === selectedId) ?? null
 
   return (
-    <div className="w-[320px] shrink-0 flex flex-col bg-surface overflow-hidden">
+    <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex w-full md:w-[320px] shrink-0 flex-col bg-surface overflow-hidden`}>
       <div className="h-11 flex items-center gap-1 px-3 border-b border-line shrink-0">
         {(['inbox', 'outbox', 'infra'] as const).map((t) => (
           <button
@@ -499,7 +506,7 @@ function StatusBar({ agents }: { agents: Agent[] }) {
   ]
 
   return (
-    <div className="h-7 flex items-center px-4 border-t border-line bg-surface shrink-0 gap-5">
+    <div className="h-7 hidden md:flex items-center px-4 border-t border-line bg-surface shrink-0 gap-5">
       <div className="flex items-center gap-5 flex-1">
         {items.map((item) => (
           <div key={item.label} className="flex items-center gap-1.5">
@@ -517,6 +524,72 @@ function StatusBar({ agents }: { agents: Agent[] }) {
   )
 }
 
+// ─── MobileNav ───────────────────────────────────────────────────────────────
+
+function MobileNav({
+  active,
+  onChange,
+  unreadCount,
+}: {
+  active: 'agents' | 'chat' | 'inbox'
+  onChange: (panel: 'agents' | 'chat' | 'inbox') => void
+  unreadCount: number
+}) {
+  const tabs = [
+    {
+      id: 'agents' as const,
+      label: 'Agents',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="9" cy="6" r="3" />
+          <path d="M3 15c0-3.314 2.686-6 6-6s6 2.686 6 6" />
+        </svg>
+      ),
+    },
+    {
+      id: 'chat' as const,
+      label: 'Chat',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 3h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6l-4 3V4a1 1 0 0 1 1-1z" />
+        </svg>
+      ),
+    },
+    {
+      id: 'inbox' as const,
+      label: 'Inbox',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 12l2-7h10l2 7H2z" />
+          <path d="M2 12h4a3 3 0 0 0 6 0h4" />
+        </svg>
+      ),
+    },
+  ]
+
+  return (
+    <nav className="md:hidden flex items-center border-t border-line bg-surface shrink-0 h-14">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          onClick={() => onChange(tab.id)}
+          className={`relative flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-colors ${
+            active === tab.id ? 'text-accent' : 'text-ink-3'
+          }`}
+        >
+          {tab.icon}
+          <span className="text-[10px] font-medium">{tab.label}</span>
+          {tab.id === 'inbox' && unreadCount > 0 && (
+            <span className="absolute top-2 right-1/4 translate-x-2 w-4 h-4 rounded-full bg-accent text-white text-[9px] flex items-center justify-center font-mono leading-none">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
+      ))}
+    </nav>
+  )
+}
+
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -526,6 +599,7 @@ export default function Dashboard() {
   const [filter, setFilter] = useState<'all' | 'running' | 'idle'>('all')
   const [actionLoading, setActionLoading] = useState(false)
   const [isDark, setIsDark] = useState(false)
+  const [mobilePanel, setMobilePanel] = useState<'agents' | 'chat' | 'inbox'>('agents')
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? null
 
@@ -591,6 +665,13 @@ export default function Dashboard() {
     fetchMessages()
   }
 
+  function handleSelectAgent(id: string) {
+    setSelectedAgentId(id)
+    setMobilePanel('chat')
+  }
+
+  const unreadCount = messages.filter((m) => m.direction === 'INBOX' && !m.processed).length
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <TopBar isDark={isDark} onToggleDark={toggleDark} />
@@ -598,9 +679,10 @@ export default function Dashboard() {
         <AgentsSidebar
           agents={agents}
           selectedId={selectedAgentId}
-          onSelect={setSelectedAgentId}
+          onSelect={handleSelectAgent}
           filter={filter}
           onFilterChange={setFilter}
+          mobileVisible={mobilePanel === 'agents'}
         />
         <ChatPanel
           agent={selectedAgent}
@@ -608,15 +690,22 @@ export default function Dashboard() {
           onSend={sendMessage}
           onToggle={toggleAgent}
           actionLoading={actionLoading}
+          mobileVisible={mobilePanel === 'chat'}
         />
         <InboxOutboxPanel
           messages={messages}
           agentName={selectedAgent?.name ?? null}
           agentsRunning={agents.filter((a) => a.status === 'RUNNING').length}
           agentsTotal={agents.length}
+          mobileVisible={mobilePanel === 'inbox'}
         />
       </div>
       <StatusBar agents={agents} />
+      <MobileNav
+        active={mobilePanel}
+        onChange={setMobilePanel}
+        unreadCount={unreadCount}
+      />
     </div>
   )
 }
