@@ -73,8 +73,8 @@ async function runStartup(
       const result = await sandbox.commands.run(command, {
         timeoutMs: 3_600_000,
         cwd: repoUrl ? '/workspace' : undefined,
-        onStdout: (d) => appendLog(agentId, d.line),
-        onStderr: (d) => appendLog(agentId, `[stderr] ${d.line}`),
+        onStdout: (d) => appendLog(agentId, d),
+        onStderr: (d) => appendLog(agentId, `[stderr] ${d}`),
       })
       appendLog(agentId, `[${ts()}] Process exited (code ${result.exitCode})`)
     } else {
