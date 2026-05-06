@@ -11,7 +11,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --prefix apps/web
-      - run: npx prisma db push --schema=prisma/schema.prisma --skip-generate
+      - run: npm install -g prisma
+      - run: prisma db push --schema=prisma/schema.prisma --skip-generate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
