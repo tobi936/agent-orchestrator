@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --c-bg:         #FCFCFB;
+  --c-surface:    #FAFAF8;
+  --c-raised:     #FFFFFF;
+  --c-ink:        #0E0E0C;
+  --c-ink-2:      #555555;
+  --c-ink-3:      #AAAAAA;
+  --c-ink-4:      #CCCCCC;
+  --c-line:       #EAE9E4;
+  --c-hover:      #F2F2F0;
+  --c-selected:   #EEEEED;
+  --c-accent:     #3D3DF5;
+  --c-accent-bg:  #F0F0FD;
+  --c-accent-bdr: #D0D0F5;
+  --c-accent-fg:  #3D3DF5;
+  --c-green:      #10b48a;
+  --c-green-bg:   #D1F5EC;
+  --c-green-fg:   #0d9068;
+  --c-orange-bg:  #FFF3E0;
+  --c-orange-fg:  #C05000;
+  --c-dot:        #D8D7D3;
+}
+
+html.dark {
+  --c-bg:         #111110;
+  --c-surface:    #161614;
+  --c-raised:     #1E1E1C;
+  --c-ink:        #F5F5F3;
+  --c-ink-2:      #999999;
+  --c-ink-3:      #555555;
+  --c-ink-4:      #333333;
+  --c-line:       #2C2C2A;
+  --c-hover:      #1E1E1C;
+  --c-selected:   #242422;
+  --c-accent:     #5555FF;
+  --c-accent-bg:  #16162A;
+  --c-accent-bdr: #2A2A50;
+  --c-accent-fg:  #8888FF;
+  --c-green:      #10b48a;
+  --c-green-bg:   #0D2820;
+  --c-green-fg:   #10b48a;
+  --c-orange-bg:  #2A1800;
+  --c-orange-fg:  #FF9955;
+  --c-dot:        #222220;
+}
+
+body {
+  background-color: var(--c-bg);
+  background-image: radial-gradient(var(--c-dot) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
