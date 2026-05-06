@@ -23,6 +23,16 @@ interface Message {
   createdAt: string
 }
 
+interface ToolEvent {
+  id: string
+  type: 'call' | 'result'
+  name: string
+  input?: Record<string, string>
+  result?: string
+  ok?: boolean
+  ts: number
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmtTime(iso: string) {
@@ -200,9 +210,55 @@ function AgentsSidebar({
 
 // ─── ChatPanel ───────────────────────────────────────────────────────────────
 
+function ToolEventRow({ event }: { event: ToolEvent }) {
+  const [expanded, setExpanded] = useState(false)
+  const isCall = event.type === 'call'
+  const label = isCall
+    ? `${event.name}${event.input ? ': ' + Object.values(event.input).join(', ').slice(0, 60) : ''}`
+    : `${event.name} — ${event.ok ? 'ok' : 'error'}`
+
+  return (
+    <div className="flex items-start gap-2 px-1">
+      <div className="flex items-center gap-1.5 mt-0.5 shrink-0">
+        {isCall ? (
+          <span className="w-4 h-4 rounded flex items-center justify-center bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400">
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1 4.5h7M5 1.5l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </span>
+        ) : (
+          <span className={`w-4 h-4 rounded flex items-center justify-center ${event.ok ? 'bg-green-bg text-green-fg' : 'bg-red-100 dark:bg-red-900/40 text-red-500'}`}>
+            {event.ok
+              ? <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1.5 4.5l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              : <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M2 2l5 5M7 2L2 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            }
+          </span>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="text-left w-full"
+        >
+          <span className="text-[11px] font-mono text-ink-3 hover:text-ink-2 transition-colors truncate block">{label}</span>
+        </button>
+        {expanded && !isCall && event.result && (
+          <pre className="mt-1 text-[10px] font-mono text-ink-3 bg-raised border border-line rounded p-2 whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
+            {event.result}
+          </pre>
+        )}
+        {expanded && isCall && event.input && (
+          <pre className="mt-1 text-[10px] font-mono text-ink-3 bg-raised border border-line rounded p-2 whitespace-pre-wrap break-all">
+            {JSON.stringify(event.input, null, 2)}
+          </pre>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function ChatPanel({
   agent,
   messages,
+  toolEvents,
   onSend,
   onToggle,
   onDelete,
@@ -211,6 +267,7 @@ function ChatPanel({
 }: {
   agent: Agent | null
   messages: Message[]
+  toolEvents: ToolEvent[]
   onSend: (content: string) => void
   onToggle: () => void
   onDelete: () => void
@@ -284,7 +341,7 @@ function ChatPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-        {messages.length === 0 && (
+        {messages.length === 0 && toolEvents.length === 0 && (
           <div className="flex items-center justify-center h-full">
             <p className="text-xs text-ink-3">
               {agent.status === 'RUNNING'
@@ -317,6 +374,22 @@ function ChatPanel({
             </div>
           )
         )}
+
+        {toolEvents.length > 0 && (
+          <div className="border border-line rounded-lg bg-surface overflow-hidden">
+            <div className="px-3 py-1.5 border-b border-line bg-raised flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Activity</span>
+              <span className="ml-auto text-[10px] font-mono text-ink-4">{toolEvents.length}</span>
+            </div>
+            <div className="px-3 py-2 space-y-1.5">
+              {toolEvents.map((ev) => (
+                <ToolEventRow key={ev.id} event={ev} />
+              ))}
+            </div>
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
@@ -608,11 +681,13 @@ export default function Dashboard() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
+  const [toolEvents, setToolEvents] = useState<ToolEvent[]>([])
   const [filter, setFilter] = useState<'all' | 'running' | 'idle'>('all')
   const [actionLoading, setActionLoading] = useState(false)
   const [isDark, setIsDark] = useState(false)
   const [mobilePanel, setMobilePanel] = useState<'agents' | 'chat' | 'inbox'>('agents')
   const [error, setError] = useState<string | null>(null)
+  const toolEventCounter = useRef(0)
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? null
 
@@ -656,6 +731,25 @@ export default function Dashboard() {
     return () => clearInterval(t)
   }, [fetchMessages])
 
+  useEffect(() => {
+    if (!selectedAgentId) { setToolEvents([]); return }
+    const selectedAgent = agents.find((a) => a.id === selectedAgentId)
+    if (selectedAgent?.status !== 'RUNNING') { setToolEvents([]); return }
+
+    setToolEvents([])
+    const es = new EventSource(`/api/agents/${selectedAgentId}/logs`)
+    es.onmessage = (e) => {
+      try {
+        const line: string = JSON.parse(e.data)
+        if (!line.startsWith('[TOOL]')) return
+        const payload = JSON.parse(line.slice(6)) as { type: 'call' | 'result'; name: string; input?: Record<string, string>; result?: string; ok?: boolean }
+        const id = `te-${++toolEventCounter.current}`
+        setToolEvents((prev) => [...prev.slice(-99), { id, ts: Date.now(), ...payload }])
+      } catch { /* ignore non-JSON or non-tool lines */ }
+    }
+    return () => es.close()
+  }, [selectedAgentId, agents])
+
   async function toggleAgent() {
     if (!selectedAgent) return
     setActionLoading(true)
@@ -687,6 +781,7 @@ export default function Dashboard() {
 
   async function sendMessage(content: string) {
     if (!selectedAgentId) return
+    setToolEvents([])
     await fetch(`/api/agents/${selectedAgentId}/inbox`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -723,6 +818,7 @@ export default function Dashboard() {
         <ChatPanel
           agent={selectedAgent}
           messages={messages}
+          toolEvents={toolEvents}
           onSend={sendMessage}
           onToggle={toggleAgent}
           onDelete={deleteAgent}
