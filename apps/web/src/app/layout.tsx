@@ -1,21 +1,20 @@
 import type { Metadata } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
+
+const geistSans = Geist({ subsets: ['latin'], variable: '--font-geist-sans' })
+const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' })
 
 export const metadata: Metadata = {
   title: 'Agent Orchestrator',
-  description: 'Manage and run AI agents locally',
+  description: 'Manage and run AI agents',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="bg-zinc-950 text-zinc-100 min-h-screen antialiased">
-        <header className="border-b border-zinc-800 px-6 py-4">
-          <a href="/" className="text-lg font-semibold tracking-tight hover:text-zinc-300 transition-colors">
-            Agent Orchestrator
-          </a>
-        </header>
-        <main className="max-w-4xl mx-auto px-6 py-8">{children}</main>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className="h-screen overflow-hidden antialiased font-sans text-[#0E0E0C] bg-[#FCFCFB]">
+        {children}
       </body>
     </html>
   )
