@@ -45,10 +45,13 @@
            repoUrl: repoUrl.trim() || undefined,
          }),
        })
-       if (!res.ok) throw new Error()
+       if (!res.ok) {
+         const body = await res.json().catch(() => ({}))
+         throw new Error(body?.error || `Server error ${res.status}`)
+       }
        router.push('/')
-     } catch {
-       setError('Something went wrong. Please try again.')
+     } catch (err) {
+       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
        setLoading(false)
      }
    }
