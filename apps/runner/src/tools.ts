@@ -34,7 +34,7 @@ export const tools = [
     type: 'function' as const,
     function: {
       name: 'run_command',
-      description: 'Run a shell command in the sandbox (e.g. ls, grep, find, cat). Returns stdout and stderr.',
+      description: 'Run any bash shell command in the sandbox — including git, gh (GitHub CLI), grep, find, ls, cat, curl, npm, python, etc. Returns stdout and stderr.',
       parameters: {
         type: 'object',
         properties: {
