@@ -58,8 +58,8 @@ async function runStartup(
       appendLog(agentId, `[${ts()}] Cloning ${repoUrl}…`)
       const clone = await sandbox.commands.run(`git clone ${repoUrl} /workspace`, {
         timeoutMs: 120_000,
-        onStdout: (d) => appendLog(agentId, d.line),
-        onStderr: (d) => appendLog(agentId, d.line),
+        onStdout: (d) => appendLog(agentId, d),
+        onStderr: (d) => appendLog(agentId, d),
       })
       if (clone.exitCode !== 0) {
         appendLog(agentId, `[${ts()}] git clone failed (code ${clone.exitCode})`)
