@@ -12,6 +12,6 @@ jobs:
         with:
           node-version: 22
       - run: npm install -g prisma
-      - run: prisma db push --schema=prisma/schema.prisma --skip-generate
+      - run: prisma db push --schema=prisma/schema.prisma
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
