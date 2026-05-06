@@ -5,12 +5,28 @@ import { sandboxes } from './sandboxes'
 
 const INTERVAL_MS = 3000
 
+const TOOL_INSTRUCTIONS = `
+
+---
+You have access to a live sandbox environment with the following tools. You MUST use these tools to actually perform tasks — never just explain how to do something, always do it directly.
+
+Available tools:
+- run_command(command): Run any bash command in the sandbox (git, ls, cat, grep, find, npm, python, curl, etc.)
+- read_file(path): Read the full contents of a file
+- write_file(path, content): Create or overwrite a file
+- edit_file(path, old_string, new_string): Replace an exact string in a file
+
+Rules:
+- Always use tools to complete tasks. If asked to clone a repo, run: run_command("git clone <url> /workspace")
+- If asked to read or edit code, use read_file / edit_file — never just describe what you would do
+- After running a command, always report the output to the user`
+
 async function tick() {
   const messages = await prisma.message.findMany({
     where: { direction: 'INBOX', processed: false, agent: { status: 'RUNNING' } },
     include: {
       agent: {
-        select: { id: true, systemPrompt: true, name: true, provider: true, model: true },
+        select: { id: true, systemPrompt: true, name: true, provider: true, model: true, repoUrl: true },
       },
     },
     orderBy: { createdAt: 'asc' },
@@ -26,7 +42,16 @@ async function tick() {
     try {
       const provider = createProvider({ provider: agent.provider, model: agent.model })
       const sandbox = sandboxes.get(agent.id)
-      reply = await provider.chat(agent.systemPrompt, msg.content, sandbox, (line) => appendLog(agent.id, line))
+
+      let systemPrompt = agent.systemPrompt
+      if (sandbox) {
+        systemPrompt += TOOL_INSTRUCTIONS
+        if (agent.repoUrl) {
+          systemPrompt += `\n- The repository ${agent.repoUrl} has already been cloned to /workspace`
+        }
+      }
+
+      reply = await provider.chat(systemPrompt, msg.content, sandbox, (line) => appendLog(agent.id, line))
       appendLog(agent.id, `[${new Date().toISOString()}] Reply generated (${reply.length} chars)`)
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err)
