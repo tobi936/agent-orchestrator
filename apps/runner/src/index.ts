@@ -1,6 +1,6 @@
 import express from 'express'
 import cors from 'cors'
-import { spawn, ChildProcess } from 'child_process'
+import { Sandbox } from 'e2b'
 import { prisma } from './db'
 import { startPoller } from './poller'
 import { appendLog, clearBuffer, getBuffer, onLog, offLog } from './logs'
@@ -11,8 +11,8 @@ const PORT = process.env.PORT ?? 3001
 app.use(cors())
 app.use(express.json())
 
-// Track live processes by agent id
-const processes = new Map<string, ChildProcess>()
+// Track live sandboxes by agent id
+const sandboxes = new Map<string, Sandbox>()
 
 // ── Start agent ───────────────────────────────────────────────────────────────
 app.post('/agents/:id/start', async (req, res) => {
@@ -22,47 +22,51 @@ app.post('/agents/:id/start', async (req, res) => {
 
   clearBuffer(agent.id)
 
+  const ts = () => new Date().toISOString()
+
   if (agent.command) {
-    // Parse command string into executable + args, respecting quoted segments
-    const parts = splitCommand(agent.command)
-    if (parts.length === 0) return res.status(400).json({ error: 'Invalid command' })
+    let sandbox: Sandbox
+    try {
+      appendLog(agent.id, `[${ts()}] Creating E2B sandbox…`)
+      sandbox = await Sandbox.create({ timeoutMs: 3_600_000 }) // max 1h
+      sandboxes.set(agent.id, sandbox)
 
-    const [exe, ...args] = parts
-    const child = spawn(exe, args, { shell: false })
+      await prisma.agent.update({
+        where: { id: agent.id },
+        data: { status: 'RUNNING', containerId: sandbox.sandboxId },
+      })
 
-    processes.set(agent.id, child)
+      appendLog(agent.id, `[${ts()}] Sandbox ${sandbox.sandboxId} ready — running: ${agent.command}`)
 
-    const ts = () => new Date().toISOString()
-    appendLog(agent.id, `[${ts()}] Spawning: ${agent.command}`)
+      // Fire-and-forget: run command and stream output
+      sandbox.commands.run(agent.command, {
+        timeoutMs: 3_600_000,
+        onStdout: (data) => appendLog(agent.id, data.line),
+        onStderr: (data) => appendLog(agent.id, `[stderr] ${data.line}`),
+      }).then((result) => {
+        appendLog(agent.id, `[${ts()}] Process exited (code ${result.exitCode})`)
+        sandboxes.delete(agent.id)
+        prisma.agent.update({ where: { id: agent.id }, data: { status: 'STOPPED' } }).catch(() => {})
+      }).catch((err: Error) => {
+        appendLog(agent.id, `[${ts()}] ERROR: ${err.message}`)
+        sandboxes.delete(agent.id)
+        prisma.agent.update({ where: { id: agent.id }, data: { status: 'STOPPED' } }).catch(() => {})
+      })
 
-    child.stdout.on('data', (data: Buffer) => {
-      for (const line of data.toString().split('\n').filter(Boolean)) {
-        appendLog(agent.id, line)
-      }
-    })
-    child.stderr.on('data', (data: Buffer) => {
-      for (const line of data.toString().split('\n').filter(Boolean)) {
-        appendLog(agent.id, `[stderr] ${line}`)
-      }
-    })
-    child.on('error', (err) => {
-      appendLog(agent.id, `[${ts()}] ERROR: ${err.message}`)
-      processes.delete(agent.id)
-      prisma.agent.update({ where: { id: agent.id }, data: { status: 'STOPPED' } }).catch(() => {})
-    })
-    child.on('close', (code) => {
-      appendLog(agent.id, `[${ts()}] Process exited with code ${code}`)
-      processes.delete(agent.id)
-      prisma.agent.update({ where: { id: agent.id }, data: { status: 'STOPPED' } }).catch(() => {})
-    })
-  } else {
-    appendLog(agent.id, `[${new Date().toISOString()}] Agent "${agent.name}" started (AI mode)`)
+      return res.json(await prisma.agent.findUnique({ where: { id: agent.id } }))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      appendLog(agent.id, `[${ts()}] Failed to create sandbox: ${msg}`)
+      return res.status(500).json({ error: msg })
+    }
   }
 
+  // AI-provider mode (no command)
   const updated = await prisma.agent.update({
     where: { id: agent.id },
     data: { status: 'RUNNING' },
   })
+  appendLog(agent.id, `[${ts()}] Agent "${agent.name}" started (AI mode)`)
   return res.json(updated)
 })
 
@@ -72,10 +76,10 @@ app.post('/agents/:id/stop', async (req, res) => {
   if (!agent) return res.status(404).json({ error: 'Not found' })
   if (agent.status === 'STOPPED') return res.status(409).json({ error: 'Already stopped' })
 
-  const child = processes.get(agent.id)
-  if (child) {
-    child.kill('SIGTERM')
-    processes.delete(agent.id)
+  const sandbox = sandboxes.get(agent.id)
+  if (sandbox) {
+    sandbox.kill().catch(() => {})
+    sandboxes.delete(agent.id)
   }
 
   const updated = await prisma.agent.update({
@@ -99,10 +103,7 @@ app.get('/agents/:id/logs', (req, res) => {
     res.write(`data: ${JSON.stringify(line)}\n\n`)
   }
 
-  const handler = (line: string) => {
-    res.write(`data: ${JSON.stringify(line)}\n\n`)
-  }
-
+  const handler = (line: string) => res.write(`data: ${JSON.stringify(line)}\n\n`)
   onLog(id, handler)
   req.on('close', () => offLog(id, handler))
 })
@@ -114,23 +115,3 @@ app.listen(PORT, () => {
   console.log(`[runner] Listening on http://localhost:${PORT}`)
   startPoller()
 })
-
-// Split a command string into tokens, respecting double-quoted segments
-function splitCommand(cmd: string): string[] {
-  const tokens: string[] = []
-  let current = ''
-  let inQuotes = false
-
-  for (let i = 0; i < cmd.length; i++) {
-    const ch = cmd[i]
-    if (ch === '"') {
-      inQuotes = !inQuotes
-    } else if (ch === ' ' && !inQuotes) {
-      if (current) { tokens.push(current); current = '' }
-    } else {
-      current += ch
-    }
-  }
-  if (current) tokens.push(current)
-  return tokens
-}
