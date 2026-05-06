@@ -1,6 +1,7 @@
 import express from 'express'
 import { createServer } from 'node:http'
 import { join } from 'node:path'
+import { spawn } from 'node:child_process'
 import jwt from 'jsonwebtoken'
 import type { Response } from 'express'
 
@@ -127,6 +128,21 @@ app.get('/api/events', (req, res) => {
   req.on('close', () => sseClients.get(userId)?.delete(res))
 })
 
+
+// Deploy webhook — triggered by GitHub Actions, no SSH needed
+app.post('/api/deploy', (req, res) => {
+  const secret = process.env.DEPLOY_SECRET
+  if (!secret || req.headers['x-deploy-secret'] !== secret) {
+    res.status(401).json({ error: 'unauthorized' })
+    return
+  }
+  res.json({ ok: true })
+  const child = spawn('bash', [join(process.cwd(), 'scripts/deploy.sh')], {
+    detached: true,
+    stdio: 'ignore',
+  })
+  child.unref()
+})
 
 // SPA fallback
 app.get('/{*path}', (_req, res) => {
