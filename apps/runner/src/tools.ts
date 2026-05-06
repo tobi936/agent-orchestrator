@@ -19,7 +19,7 @@ export const tools = [
     type: 'function' as const,
     function: {
       name: 'write_file',
-      description: 'Write content to a file in the sandbox (creates or overwrites).',
+      description: 'Write content to a file in the sandbox (creates or overwrites the entire file).',
       parameters: {
         type: 'object',
         properties: {
@@ -27,6 +27,22 @@ export const tools = [
           content: { type: 'string', description: 'Text content to write' },
         },
         required: ['path', 'content'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'edit_file',
+      description: 'Make a targeted edit to a file by replacing an exact string. Prefer this over write_file when changing only part of a file.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Absolute path to the file' },
+          old_string: { type: 'string', description: 'The exact string to find and replace' },
+          new_string: { type: 'string', description: 'The string to replace it with' },
+        },
+        required: ['path', 'old_string', 'new_string'],
       },
     },
   },
@@ -57,6 +73,13 @@ export async function executeTool(
     if (name === 'write_file') {
       await sandbox.files.write(input.path, input.content)
       return `Written: ${input.path}`
+    }
+
+    if (name === 'edit_file') {
+      const content = await sandbox.files.read(input.path)
+      if (!content.includes(input.old_string)) return `Error: old_string not found in ${input.path}`
+      await sandbox.files.write(input.path, content.replace(input.old_string, input.new_string))
+      return `Edited: ${input.path}`
     }
 
     if (name === 'run_command') {
