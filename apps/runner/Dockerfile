@@ -3,7 +3,7 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 COPY prisma ./prisma
 COPY apps/runner/package*.json ./apps/runner/
-RUN cd apps/runner && npm ci && npx prisma generate --schema=../prisma/schema.prisma
+RUN cd apps/runner && npm install && npx prisma generate --schema=../prisma/schema.prisma
 
 FROM node:22-alpine AS builder
 WORKDIR /app
