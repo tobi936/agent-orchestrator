@@ -15,7 +15,6 @@
    const [systemPrompt, setSystemPrompt] = useState('')
    const [provider, setProvider] = useState<typeof PROVIDERS[number]['value']>('ollama')
    const [model, setModel] = useState<string>(PROVIDERS[0].defaultModel)
-   const [command, setCommand] = useState('')
    const [repoUrl, setRepoUrl] = useState('')
    const [loading, setLoading] = useState(false)
    const [error, setError] = useState('')
@@ -41,7 +40,6 @@
            systemPrompt,
            provider,
            model,
-           command: command.trim() || undefined,
            repoUrl: repoUrl.trim() || undefined,
          }),
        })
@@ -173,21 +171,6 @@ focus:border-accent transition-colors font-mono"
 focus:border-accent transition-colors"
                  />
                  <p className="text-[11px] text-ink-3 mt-1">Cloned to /workspace on start</p>
-               </div>
- 
-               <div>
-                 <label className="block text-[11px] font-medium text-ink-3 mb-1.5 uppercase tracking-wider">
-                   Command
-                 </label>
-                 <input
-                   type="text"
-                   value={command}
-                   onChange={(e) => setCommand(e.target.value)}
-                   placeholder="e.g. python main.py"
-                   className="w-full bg-raised border border-line rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-4 focus:outline-none 
-focus:border-accent transition-colors font-mono"
-                 />
-                 <p className="text-[11px] text-ink-3 mt-1">Runs in the sandbox after repo is cloned</p>
                </div>
              </div>
  
