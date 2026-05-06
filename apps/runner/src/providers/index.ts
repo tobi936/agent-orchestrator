@@ -2,7 +2,7 @@ import { Sandbox } from 'e2b'
 import { tools, executeTool } from '../tools'
 
 export interface AIProvider {
-  chat(systemPrompt: string, userMessage: string, sandbox?: Sandbox): Promise<string>
+  chat(systemPrompt: string, userMessage: string, sandbox?: Sandbox, log?: (line: string) => void): Promise<string>
 }
 
 export interface ProviderConfig {
@@ -55,6 +55,7 @@ async function runToolLoop(
   userMessage: string,
   sandbox: Sandbox | undefined,
   extraHeaders: Record<string, string> = {},
+  log?: (line: string) => void,
 ): Promise<string> {
   const messages: Message[] = [
     { role: 'system', content: systemPrompt },
@@ -74,7 +75,10 @@ async function runToolLoop(
 
     for (const tc of message.tool_calls) {
       const input = JSON.parse(tc.function.arguments) as Record<string, string>
+      log?.(`[TOOL]${JSON.stringify({ type: 'call', name: tc.function.name, input })}`)
       const result = await executeTool(tc.function.name, input, sandbox!)
+      const ok = !result.startsWith('Error:')
+      log?.(`[TOOL]${JSON.stringify({ type: 'result', name: tc.function.name, ok, result: result.slice(0, 500) })}`)
       messages.push({ role: 'tool', tool_call_id: tc.id, content: result })
     }
   }
@@ -85,7 +89,7 @@ async function runToolLoop(
 
 class OllamaProvider implements AIProvider {
   constructor(private model: string) {}
-  chat(systemPrompt: string, userMessage: string, sandbox?: Sandbox) {
+  chat(systemPrompt: string, userMessage: string, sandbox?: Sandbox, log?: (line: string) => void) {
     return runToolLoop(
       'https://ollama.com/v1',
       process.env.OLLAMA_API_KEY ?? '',
@@ -93,26 +97,31 @@ class OllamaProvider implements AIProvider {
       systemPrompt,
       userMessage,
       sandbox,
+      {},
+      log,
     )
   }
 }
 
 class OpenAIProvider implements AIProvider {
   constructor(private model: string) {}
-  async chat(systemPrompt: string, userMessage: string) {
-    const { message } = await openAICompatChat(
+  chat(systemPrompt: string, userMessage: string, sandbox?: Sandbox, log?: (line: string) => void) {
+    return runToolLoop(
       'https://api.openai.com/v1',
       process.env.OPENAI_API_KEY ?? '',
       this.model,
-      [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }],
+      systemPrompt,
+      userMessage,
+      sandbox,
+      {},
+      log,
     )
-    return message.content ?? ''
   }
 }
 
 class AnthropicProvider implements AIProvider {
   constructor(private model: string) {}
-  async chat(systemPrompt: string, userMessage: string): Promise<string> {
+  async chat(systemPrompt: string, userMessage: string, _sandbox?: Sandbox, _log?: (line: string) => void): Promise<string> {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
