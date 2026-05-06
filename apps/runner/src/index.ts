@@ -59,6 +59,7 @@ async function runStartup(
         onStderr: (d) => appendLog(agentId, d),
       })
 
+      await sandbox.commands.run('mkdir -p /workspace', { timeoutMs: 10_000 })
       appendLog(agentId, `[${ts()}] Cloning ${repoUrl}…`)
       const clone = await sandbox.commands.run(`git clone --depth=1 "${repoUrl}" /workspace`, {
         timeoutMs: 120_000,
