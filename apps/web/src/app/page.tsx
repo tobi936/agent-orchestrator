@@ -205,6 +205,7 @@ function ChatPanel({
   messages,
   onSend,
   onToggle,
+  onDelete,
   actionLoading,
   mobileVisible,
 }: {
@@ -212,6 +213,7 @@ function ChatPanel({
   messages: Message[]
   onSend: (content: string) => void
   onToggle: () => void
+  onDelete: () => void
   actionLoading: boolean
   mobileVisible: boolean
 }) {
@@ -258,17 +260,27 @@ function ChatPanel({
             {agent.status === 'RUNNING' ? 'running' : 'idle'}
           </span>
         </div>
-        <button
-          onClick={onToggle}
-          disabled={actionLoading}
-          className={`text-[11px] font-medium px-3 py-1 rounded-md transition-colors disabled:opacity-50 ${
-            agent.status === 'RUNNING'
-              ? 'bg-raised border border-line text-ink-2 hover:bg-hover hover:text-ink'
-              : 'bg-accent text-white hover:opacity-90'
-          }`}
-        >
-          {actionLoading ? '…' : agent.status === 'RUNNING' ? 'Stop' : 'Start'}
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={onToggle}
+            disabled={actionLoading}
+            className={`text-[11px] font-medium px-3 py-1 rounded-md transition-colors disabled:opacity-50 ${
+              agent.status === 'RUNNING'
+                ? 'bg-raised border border-line text-ink-2 hover:bg-hover hover:text-ink'
+                : 'bg-accent text-white hover:opacity-90'
+            }`}
+          >
+            {actionLoading ? '…' : agent.status === 'RUNNING' ? 'Stop' : 'Start'}
+          </button>
+          <button
+            onClick={onDelete}
+            disabled={actionLoading || agent.status === 'RUNNING'}
+            title="Delete agent"
+            className="text-[11px] font-medium px-2 py-1 rounded-md text-ink-3 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            Delete
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
@@ -600,6 +612,7 @@ export default function Dashboard() {
   const [actionLoading, setActionLoading] = useState(false)
   const [isDark, setIsDark] = useState(false)
   const [mobilePanel, setMobilePanel] = useState<'agents' | 'chat' | 'inbox'>('agents')
+  const [error, setError] = useState<string | null>(null)
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? null
 
@@ -646,13 +659,30 @@ export default function Dashboard() {
   async function toggleAgent() {
     if (!selectedAgent) return
     setActionLoading(true)
+    setError(null)
     const action = selectedAgent.status === 'RUNNING' ? 'stop' : 'start'
-    const res = await fetch(`/api/agents/${selectedAgent.id}/${action}`, { method: 'POST' })
-    if (res.ok) {
-      const updated: Agent = await res.json()
-      setAgents((prev) => prev.map((a) => (a.id === updated.id ? updated : a)))
+    try {
+      const res = await fetch(`/api/agents/${selectedAgent.id}/${action}`, { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        setAgents((prev) => prev.map((a) => (a.id === data.id ? data : a)))
+      } else {
+        setError(data?.error ?? `Failed to ${action} agent`)
+      }
+    } catch {
+      setError(`Network error — could not ${action} agent`)
     }
     setActionLoading(false)
+  }
+
+  async function deleteAgent() {
+    if (!selectedAgent) return
+    if (!confirm(`Delete "${selectedAgent.name}"?`)) return
+    const res = await fetch(`/api/agents/${selectedAgent.id}`, { method: 'DELETE' })
+    if (res.ok) {
+      setAgents((prev) => prev.filter((a) => a.id !== selectedAgent.id))
+      setSelectedAgentId(null)
+    }
   }
 
   async function sendMessage(content: string) {
@@ -675,6 +705,12 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <TopBar isDark={isDark} onToggleDark={toggleDark} />
+      {error && (
+        <div className="mx-4 mt-2 px-3 py-2 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/40 rounded-md flex items-center justify-between gap-3 shrink-0">
+          <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 text-sm leading-none shrink-0">✕</button>
+        </div>
+      )}
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <AgentsSidebar
           agents={agents}
@@ -689,6 +725,7 @@ export default function Dashboard() {
           messages={messages}
           onSend={sendMessage}
           onToggle={toggleAgent}
+          onDelete={deleteAgent}
           actionLoading={actionLoading}
           mobileVisible={mobilePanel === 'chat'}
         />
