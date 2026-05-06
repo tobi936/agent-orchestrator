@@ -33,25 +33,49 @@ function fmtTimeFull(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
+// ─── Icons ───────────────────────────────────────────────────────────────────
+
+function MoonIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12.5 9.5A6 6 0 0 1 4.5 1.5a6 6 0 1 0 8 8z" />
+    </svg>
+  )
+}
+
+function SunIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <circle cx="7" cy="7" r="2.3" />
+      <line x1="7" y1="0.5" x2="7" y2="2" />
+      <line x1="7" y1="12" x2="7" y2="13.5" />
+      <line x1="0.5" y1="7" x2="2" y2="7" />
+      <line x1="12" y1="7" x2="13.5" y2="7" />
+      <line x1="2.4" y1="2.4" x2="3.4" y2="3.4" />
+      <line x1="10.6" y1="10.6" x2="11.6" y2="11.6" />
+      <line x1="2.4" y1="11.6" x2="3.4" y2="10.6" />
+      <line x1="10.6" y1="3.4" x2="11.6" y2="2.4" />
+    </svg>
+  )
+}
+
 // ─── StatusDot ───────────────────────────────────────────────────────────────
 
 function StatusDot({ status }: { status: AgentStatus }) {
   return (
-    <span
-      className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
-        status === 'RUNNING' ? 'bg-[#10b48a]' : 'bg-[#C8C7C3]'
-      }`}
-    />
+    <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
+      status === 'RUNNING' ? 'bg-green' : 'bg-ink-4'
+    }`} />
   )
 }
 
 // ─── TopBar ──────────────────────────────────────────────────────────────────
 
-function TopBar() {
+function TopBar({ isDark, onToggleDark }: { isDark: boolean; onToggleDark: () => void }) {
   return (
-    <header className="h-11 flex items-center justify-between px-4 border-b border-[#EAE9E4] bg-[#FAFAF8] shrink-0">
+    <header className="h-11 flex items-center justify-between px-4 border-b border-line bg-surface shrink-0">
       <div className="flex items-center gap-2.5">
-        <div className="w-6 h-6 rounded-[5px] bg-[#3D3DF5] flex items-center justify-center">
+        <div className="w-6 h-6 rounded-[5px] bg-accent flex items-center justify-center">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <rect x="1" y="1" width="4" height="4" rx="1" fill="white" fillOpacity="0.9" />
             <rect x="7" y="1" width="4" height="4" rx="1" fill="white" fillOpacity="0.6" />
@@ -59,14 +83,23 @@ function TopBar() {
             <rect x="7" y="7" width="4" height="4" rx="1" fill="white" fillOpacity="0.9" />
           </svg>
         </div>
-        <span className="text-sm font-semibold tracking-tight text-[#0E0E0C]">Orchestrator</span>
-        <span className="h-3.5 w-px bg-[#EAE9E4]" />
-        <span className="text-[11px] font-medium text-[#999] px-1.5 py-0.5 bg-[#F0F0EE] rounded border border-[#EAE9E4]">
+        <span className="text-sm font-semibold tracking-tight text-ink">Orchestrator</span>
+        <span className="h-3.5 w-px bg-line" />
+        <span className="text-[11px] font-medium text-ink-3 px-1.5 py-0.5 bg-hover rounded border border-line">
           local
         </span>
       </div>
-      <div className="w-7 h-7 rounded-full bg-[#EAE9E4] flex items-center justify-center">
-        <span className="text-[11px] font-semibold text-[#666]">U</span>
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={onToggleDark}
+          title={isDark ? 'Light mode' : 'Dark mode'}
+          className="w-7 h-7 rounded-md flex items-center justify-center text-ink-3 hover:text-ink hover:bg-hover transition-colors"
+        >
+          {isDark ? <SunIcon /> : <MoonIcon />}
+        </button>
+        <div className="w-7 h-7 rounded-full bg-hover border border-line flex items-center justify-center">
+          <span className="text-[11px] font-semibold text-ink-2">U</span>
+        </div>
       </div>
     </header>
   )
@@ -97,14 +130,12 @@ function AgentsSidebar({
   })
 
   return (
-    <div className="w-[240px] shrink-0 flex flex-col border-r border-[#EAE9E4] bg-[#FAFAF8] overflow-hidden">
-      {/* Header */}
+    <div className="w-[240px] shrink-0 flex flex-col border-r border-line bg-surface overflow-hidden">
       <div className="px-3 pt-3 pb-2 shrink-0">
         <div className="flex items-center justify-between mb-2.5">
-          <span className="text-[10px] font-semibold text-[#888] uppercase tracking-widest">Agents</span>
-          <span className="text-[10px] font-mono text-[#BBB]">{agents.length}</span>
+          <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Agents</span>
+          <span className="text-[10px] font-mono text-ink-4">{agents.length}</span>
         </div>
-        {/* Filter pills */}
         <div className="flex items-center gap-1">
           {(['all', 'running', 'idle'] as const).map((f) => (
             <button
@@ -112,20 +143,23 @@ function AgentsSidebar({
               onClick={() => onFilterChange(f)}
               className={`text-[11px] font-medium px-2 py-0.5 rounded-full transition-colors ${
                 filter === f
-                  ? 'bg-[#0E0E0C] text-white'
-                  : 'text-[#888] hover:text-[#0E0E0C] hover:bg-[#EEEEED]'
+                  ? 'bg-ink text-bg'
+                  : 'text-ink-3 hover:text-ink hover:bg-hover'
               }`}
             >
-              {f === 'all' ? 'All' : f === 'running' ? `Running${runningCount > 0 ? ` ${runningCount}` : ''}` : 'Idle'}
+              {f === 'all'
+                ? 'All'
+                : f === 'running'
+                ? `Running${runningCount > 0 ? ` ${runningCount}` : ''}`
+                : 'Idle'}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Agent list */}
       <div className="flex-1 overflow-y-auto px-2 space-y-px pb-2">
         {filtered.length === 0 ? (
-          <p className="text-center text-[11px] text-[#BBB] py-8">No agents</p>
+          <p className="text-center text-[11px] text-ink-4 py-8">No agents</p>
         ) : (
           filtered.map((agent) => (
             <button
@@ -133,8 +167,8 @@ function AgentsSidebar({
               onClick={() => onSelect(agent.id)}
               className={`w-full flex items-start gap-2 px-2.5 py-2 rounded-md transition-colors text-left ${
                 selectedId === agent.id
-                  ? 'bg-[#EEEEED] text-[#0E0E0C]'
-                  : 'text-[#555] hover:bg-[#F2F2F0] hover:text-[#0E0E0C]'
+                  ? 'bg-selected text-ink'
+                  : 'text-ink-2 hover:bg-hover hover:text-ink'
               }`}
             >
               <span className="mt-[5px]">
@@ -142,18 +176,17 @@ function AgentsSidebar({
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[12px] font-medium truncate leading-tight">{agent.name}</p>
-                <p className="text-[10px] text-[#AAA] truncate mt-0.5 leading-tight">{agent.systemPrompt}</p>
+                <p className="text-[10px] text-ink-3 truncate mt-0.5 leading-tight">{agent.systemPrompt}</p>
               </div>
             </button>
           ))
         )}
       </div>
 
-      {/* New Agent */}
-      <div className="p-2 shrink-0 border-t border-[#EAE9E4]">
+      <div className="p-2 shrink-0 border-t border-line">
         <button
           onClick={() => router.push('/agents/new')}
-          className="w-full flex items-center justify-center gap-1 py-1.5 text-[11px] font-medium text-[#888] hover:text-[#3D3DF5] hover:bg-[#F0F0FD] rounded-md transition-colors border border-dashed border-[#D4D3CE] hover:border-[#AAAAF0]"
+          className="w-full flex items-center justify-center gap-1 py-1.5 text-[11px] font-medium text-ink-3 hover:text-accent-fg hover:bg-accent-bg rounded-md transition-colors border border-dashed border-line hover:border-accent-bdr"
         >
           <span className="text-sm leading-none font-light">+</span>
           New Agent
@@ -196,30 +229,27 @@ function ChatPanel({
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center select-none">
-          <div className="w-10 h-10 rounded-xl bg-[#F0F0FD] border border-[#D8D8F5] flex items-center justify-center mx-auto mb-3">
-            <div className="w-4 h-4 rounded-[3px] bg-[#3D3DF5] opacity-30" />
+          <div className="w-10 h-10 rounded-xl bg-accent-bg border border-accent-bdr flex items-center justify-center mx-auto mb-3">
+            <div className="w-4 h-4 rounded-[3px] bg-accent opacity-30" />
           </div>
-          <p className="text-sm font-medium text-[#888]">Select an agent</p>
-          <p className="text-xs text-[#BBB] mt-0.5">Pick one from the left to start</p>
+          <p className="text-sm font-medium text-ink-2">Select an agent</p>
+          <p className="text-xs text-ink-3 mt-0.5">Pick one from the left to start</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex-1 min-w-0 flex flex-col border-r border-[#EAE9E4]">
-      {/* Header */}
-      <div className="h-11 px-4 flex items-center justify-between border-b border-[#EAE9E4] shrink-0 bg-[#FAFAF8]">
+    <div className="flex-1 min-w-0 flex flex-col border-r border-line">
+      <div className="h-11 px-4 flex items-center justify-between border-b border-line shrink-0 bg-surface">
         <div className="flex items-center gap-2">
           <StatusDot status={agent.status} />
-          <span className="text-sm font-semibold text-[#0E0E0C]">{agent.name}</span>
-          <span
-            className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full font-mono ${
-              agent.status === 'RUNNING'
-                ? 'bg-[#D1F5EC] text-[#0d9068]'
-                : 'bg-[#F0F0EE] text-[#999]'
-            }`}
-          >
+          <span className="text-sm font-semibold text-ink">{agent.name}</span>
+          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full font-mono ${
+            agent.status === 'RUNNING'
+              ? 'bg-green-bg text-green-fg'
+              : 'bg-hover text-ink-3'
+          }`}>
             {agent.status === 'RUNNING' ? 'running' : 'idle'}
           </span>
         </div>
@@ -228,45 +258,44 @@ function ChatPanel({
           disabled={actionLoading}
           className={`text-[11px] font-medium px-3 py-1 rounded-md transition-colors disabled:opacity-50 ${
             agent.status === 'RUNNING'
-              ? 'bg-white border border-[#EAE9E4] text-[#555] hover:bg-[#F5F5F2] hover:text-[#0E0E0C]'
-              : 'bg-[#3D3DF5] text-white hover:bg-[#3030e0]'
+              ? 'bg-raised border border-line text-ink-2 hover:bg-hover hover:text-ink'
+              : 'bg-accent text-white hover:opacity-90'
           }`}
         >
           {actionLoading ? '…' : agent.status === 'RUNNING' ? 'Stop' : 'Start'}
         </button>
       </div>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
         {messages.length === 0 && (
           <div className="flex items-center justify-center h-full">
-            <p className="text-xs text-[#BBB]">
-              {agent.status === 'RUNNING' ? 'No messages yet — send one below.' : 'Start the agent to begin.'}
+            <p className="text-xs text-ink-3">
+              {agent.status === 'RUNNING'
+                ? 'No messages yet — send one below.'
+                : 'Start the agent to begin.'}
             </p>
           </div>
         )}
 
         {messages.map((msg) =>
           msg.direction === 'INBOX' ? (
-            /* User bubble — right */
             <div key={msg.id} className="flex items-end gap-2 justify-end">
-              <div className="max-w-[70%] rounded-xl rounded-br-sm bg-[#3D3DF5] px-3.5 py-2.5 shadow-sm">
+              <div className="max-w-[70%] rounded-xl rounded-br-sm bg-accent px-3.5 py-2.5 dark:shadow-none shadow-sm">
                 <p className="text-[13px] text-white whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                <p className="text-[10px] text-indigo-300 mt-1 font-mono text-right">{fmtTime(msg.createdAt)}</p>
+                <p className="text-[10px] text-white/50 mt-1 font-mono text-right">{fmtTime(msg.createdAt)}</p>
               </div>
-              <div className="w-6 h-6 rounded-full bg-[#EBEBFF] border border-[#CCCCF5] flex items-center justify-center shrink-0">
-                <span className="text-[9px] font-bold text-[#3D3DF5]">U</span>
+              <div className="w-6 h-6 rounded-full bg-accent-bg border border-accent-bdr flex items-center justify-center shrink-0">
+                <span className="text-[9px] font-bold text-accent-fg">U</span>
               </div>
             </div>
           ) : (
-            /* Agent bubble — left */
             <div key={msg.id} className="flex items-end gap-2">
-              <div className="w-6 h-6 rounded-full bg-[#0E0E0C] flex items-center justify-center shrink-0">
-                <span className="text-[9px] font-bold text-white">C</span>
+              <div className="w-6 h-6 rounded-full bg-ink flex items-center justify-center shrink-0">
+                <span className="text-[9px] font-bold text-bg">C</span>
               </div>
-              <div className="max-w-[70%] rounded-xl rounded-bl-sm bg-white border border-[#EAE9E4] px-3.5 py-2.5 shadow-sm">
-                <p className="text-[13px] text-[#0E0E0C] whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                <p className="text-[10px] text-[#BBB] mt-1 font-mono">{fmtTime(msg.createdAt)}</p>
+              <div className="max-w-[70%] rounded-xl rounded-bl-sm bg-raised border border-line px-3.5 py-2.5 dark:shadow-none shadow-sm">
+                <p className="text-[13px] text-ink whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                <p className="text-[10px] text-ink-3 mt-1 font-mono">{fmtTime(msg.createdAt)}</p>
               </div>
             </div>
           )
@@ -274,8 +303,7 @@ function ChatPanel({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Composer */}
-      <div className="px-4 py-3 shrink-0 border-t border-[#EAE9E4] bg-[#FAFAF8]">
+      <div className="px-4 py-3 shrink-0 border-t border-line bg-surface">
         <form onSubmit={handleSubmit} className="flex gap-2">
           <input
             type="text"
@@ -283,12 +311,12 @@ function ChatPanel({
             onChange={(e) => setInput(e.target.value)}
             placeholder={agent.status === 'RUNNING' ? 'Message…' : 'Start the agent first'}
             disabled={agent.status !== 'RUNNING'}
-            className="flex-1 bg-white border border-[#EAE9E4] rounded-lg px-3.5 py-2 text-sm text-[#0E0E0C] placeholder:text-[#C8C7C3] focus:outline-none focus:border-[#3D3DF5] focus:ring-1 focus:ring-[#3D3DF5]/20 transition-colors disabled:opacity-50 disabled:bg-[#F5F5F2]"
+            className="flex-1 bg-raised border border-line rounded-lg px-3.5 py-2 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent transition-colors disabled:opacity-50 disabled:bg-hover"
           />
           <button
             type="submit"
             disabled={agent.status !== 'RUNNING' || !input.trim()}
-            className="bg-[#3D3DF5] hover:bg-[#3030e0] disabled:opacity-40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="bg-accent hover:opacity-90 disabled:opacity-40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-opacity"
           >
             Send
           </button>
@@ -298,16 +326,26 @@ function ChatPanel({
   )
 }
 
-// ─── InboxOutboxPanel ────────────────────────────────────────────────────────
+// ─── InboxOutboxPanel (Inbox | Outbox | Infra) ───────────────────────────────
+
+const HEALTH_ITEMS = [
+  { label: 'Claude Auth', ok: true },
+  { label: 'Docker', ok: true },
+  { label: 'API Rate', ok: true },
+]
 
 function InboxOutboxPanel({
   messages,
   agentName,
+  agentsRunning,
+  agentsTotal,
 }: {
   messages: Message[]
   agentName: string | null
+  agentsRunning: number
+  agentsTotal: number
 }) {
-  const [tab, setTab] = useState<'inbox' | 'outbox'>('inbox')
+  const [tab, setTab] = useState<'inbox' | 'outbox' | 'infra'>('inbox')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const filtered = messages.filter((m) =>
@@ -317,22 +355,21 @@ function InboxOutboxPanel({
   const selectedMsg = messages.find((m) => m.id === selectedId) ?? null
 
   return (
-    <div className="w-[320px] shrink-0 flex flex-col border-r border-[#EAE9E4] bg-[#FAFAF8] overflow-hidden">
-      {/* Tab header */}
-      <div className="h-11 flex items-center gap-1 px-3 border-b border-[#EAE9E4] shrink-0">
-        {(['inbox', 'outbox'] as const).map((t) => (
+    <div className="w-[320px] shrink-0 flex flex-col bg-surface overflow-hidden">
+      <div className="h-11 flex items-center gap-1 px-3 border-b border-line shrink-0">
+        {(['inbox', 'outbox', 'infra'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
               tab === t
-                ? 'bg-[#EEEEED] text-[#0E0E0C]'
-                : 'text-[#888] hover:text-[#0E0E0C] hover:bg-[#F2F2F0]'
+                ? 'bg-selected text-ink'
+                : 'text-ink-3 hover:text-ink hover:bg-hover'
             }`}
           >
-            {t === 'inbox' ? 'Inbox' : 'Outbox'}
+            {t === 'inbox' ? 'Inbox' : t === 'outbox' ? 'Outbox' : 'Infra'}
             {t === 'inbox' && unreadInbox > 0 && (
-              <span className="w-4 h-4 rounded-full bg-[#3D3DF5] text-white text-[9px] flex items-center justify-center font-mono leading-none">
+              <span className="w-4 h-4 rounded-full bg-accent text-white text-[9px] flex items-center justify-center font-mono leading-none">
                 {unreadInbox}
               </span>
             )}
@@ -340,148 +377,103 @@ function InboxOutboxPanel({
         ))}
       </div>
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto">
-        {!agentName ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-[11px] text-[#BBB]">Select an agent</p>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-[11px] text-[#BBB]">No messages</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-[#EAE9E4]">
-            {filtered.map((msg) => (
-              <button
-                key={msg.id}
-                onClick={() => setSelectedId(selectedId === msg.id ? null : msg.id)}
-                className={`w-full px-3 py-2.5 text-left transition-colors hover:bg-[#F2F2F0] ${
-                  selectedId === msg.id ? 'bg-[#F0F0FD]' : ''
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-mono text-[#999]">
-                    {tab === 'inbox' ? `user → ${agentName}` : `${agentName} → user`}
-                  </span>
-                  <span className="text-[10px] font-mono text-[#C8C7C3]">{fmtTimeFull(msg.createdAt)}</span>
-                </div>
-                <p className="text-[11px] text-[#555] line-clamp-2 leading-snug">{msg.content}</p>
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <span
-                    className={`text-[9px] font-medium px-1.5 py-px rounded-full font-mono ${
-                      tab === 'inbox' ? 'bg-[#EBEBFF] text-[#3D3DF5]' : 'bg-[#D1F5EC] text-[#0d9068]'
-                    }`}
-                  >
-                    {tab}
-                  </span>
-                  {tab === 'inbox' && (
-                    <span
-                      className={`text-[9px] font-mono px-1.5 py-px rounded-full ${
-                        msg.processed ? 'bg-[#F0F0EE] text-[#AAA]' : 'bg-[#FFF3E0] text-[#C05000]'
-                      }`}
-                    >
-                      {msg.processed ? 'processed' : 'pending'}
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Detail drawer */}
-      {selectedMsg && (
-        <div className="border-t border-[#EAE9E4] bg-white shrink-0 max-h-[180px] overflow-y-auto">
-          <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5">
-            <span className="text-[9px] font-semibold text-[#AAA] uppercase tracking-widest">Content</span>
-            <button
-              onClick={() => setSelectedId(null)}
-              className="text-[11px] text-[#C8C7C3] hover:text-[#888] leading-none"
-            >
-              ✕
-            </button>
-          </div>
-          <pre className="px-3 pb-3 text-[11px] font-mono text-[#444] whitespace-pre-wrap break-all leading-relaxed">
-            {selectedMsg.content}
-          </pre>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── InfraPanel ──────────────────────────────────────────────────────────────
-
-function InfraPanel({
-  collapsed,
-  onToggle,
-  agentsRunning,
-  agentsTotal,
-}: {
-  collapsed: boolean
-  onToggle: () => void
-  agentsRunning: number
-  agentsTotal: number
-}) {
-  const healthItems = [
-    { label: 'Claude Auth', ok: true },
-    { label: 'Docker', ok: true },
-    { label: 'API Rate', ok: true },
-  ]
-
-  return (
-    <div
-      className={`shrink-0 flex flex-col bg-[#FAFAF8] overflow-hidden transition-[width] duration-200 ${
-        collapsed ? 'w-8' : 'w-[240px]'
-      }`}
-    >
-      {/* Toggle row */}
-      <div className="h-11 flex items-center px-2 border-b border-[#EAE9E4] shrink-0 gap-1.5">
-        <button
-          onClick={onToggle}
-          title={collapsed ? 'Expand' : 'Collapse'}
-          className="w-5 h-5 rounded flex items-center justify-center text-[#AAA] hover:text-[#0E0E0C] hover:bg-[#EEEEED] transition-colors text-xs"
-        >
-          {collapsed ? '‹' : '›'}
-        </button>
-        {!collapsed && (
-          <span className="text-[9px] font-semibold text-[#AAA] uppercase tracking-widest whitespace-nowrap">
-            Infrastructure
-          </span>
-        )}
-      </div>
-
-      {!collapsed && (
+      {tab === 'infra' && (
         <div className="flex-1 overflow-y-auto p-3 space-y-5">
-          {/* Health */}
           <section>
-            <p className="text-[9px] font-semibold text-[#AAA] uppercase tracking-widest mb-2">Health</p>
-            <div className="space-y-2">
-              {healthItems.map((item) => (
+            <p className="text-[9px] font-semibold text-ink-3 uppercase tracking-widest mb-2.5">Health</p>
+            <div className="space-y-2.5">
+              {HEALTH_ITEMS.map((item) => (
                 <div key={item.label} className="flex items-center justify-between">
-                  <span className="text-[11px] text-[#555]">{item.label}</span>
+                  <span className="text-[11px] text-ink-2">{item.label}</span>
                   <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#10b48a]" />
-                    <span className="text-[10px] font-mono text-[#10b48a]">ok</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-green" />
+                    <span className="text-[10px] font-mono text-green-fg">ok</span>
                   </div>
                 </div>
               ))}
             </div>
           </section>
-
-          {/* Agents */}
           <section>
-            <p className="text-[9px] font-semibold text-[#AAA] uppercase tracking-widest mb-2">Agents</p>
+            <p className="text-[9px] font-semibold text-ink-3 uppercase tracking-widest mb-2.5">Agents</p>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] text-[#555]">Running</span>
-              <span className="text-[11px] font-mono text-[#0E0E0C]">
-                {agentsRunning}/{agentsTotal}
-              </span>
+              <span className="text-[11px] text-ink-2">Running</span>
+              <span className="text-[11px] font-mono text-ink">{agentsRunning}/{agentsTotal}</span>
             </div>
           </section>
         </div>
+      )}
+
+      {tab !== 'infra' && (
+        <>
+          <div className="flex-1 overflow-y-auto">
+            {!agentName ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-[11px] text-ink-3">Select an agent</p>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-[11px] text-ink-3">No messages</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-line">
+                {filtered.map((msg) => (
+                  <button
+                    key={msg.id}
+                    onClick={() => setSelectedId(selectedId === msg.id ? null : msg.id)}
+                    className={`w-full px-3 py-2.5 text-left transition-colors hover:bg-hover ${
+                      selectedId === msg.id ? 'bg-accent-bg' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-mono text-ink-3">
+                        {tab === 'inbox' ? `user → ${agentName}` : `${agentName} → user`}
+                      </span>
+                      <span className="text-[10px] font-mono text-ink-4">
+                        {fmtTimeFull(msg.createdAt)}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-ink-2 line-clamp-2 leading-snug">{msg.content}</p>
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <span className={`text-[9px] font-medium px-1.5 py-px rounded-full font-mono ${
+                        tab === 'inbox'
+                          ? 'bg-accent-bg text-accent-fg'
+                          : 'bg-green-bg text-green-fg'
+                      }`}>
+                        {tab}
+                      </span>
+                      {tab === 'inbox' && (
+                        <span className={`text-[9px] font-mono px-1.5 py-px rounded-full ${
+                          msg.processed
+                            ? 'bg-hover text-ink-3'
+                            : 'bg-orange-bg text-orange-fg'
+                        }`}>
+                          {msg.processed ? 'processed' : 'pending'}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {selectedMsg && (
+            <div className="border-t border-line bg-raised shrink-0 max-h-[180px] overflow-y-auto">
+              <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5">
+                <span className="text-[9px] font-semibold text-ink-3 uppercase tracking-widest">Content</span>
+                <button
+                  onClick={() => setSelectedId(null)}
+                  className="text-[11px] text-ink-4 hover:text-ink-2 leading-none"
+                >
+                  ✕
+                </button>
+              </div>
+              <pre className="px-3 pb-3 text-[11px] font-mono text-ink-2 whitespace-pre-wrap break-all leading-relaxed">
+                {selectedMsg.content}
+              </pre>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
@@ -507,22 +499,18 @@ function StatusBar({ agents }: { agents: Agent[] }) {
   ]
 
   return (
-    <div className="h-7 flex items-center px-4 border-t border-[#EAE9E4] bg-[#FAFAF8] shrink-0 gap-5">
+    <div className="h-7 flex items-center px-4 border-t border-line bg-surface shrink-0 gap-5">
       <div className="flex items-center gap-5 flex-1">
         {items.map((item) => (
           <div key={item.label} className="flex items-center gap-1.5">
-            <span
-              className="w-1 h-1 rounded-full shrink-0"
-              style={{ background: item.ok ? '#10b48a' : '#C8C7C3' }}
-            />
-            <span className="text-[10px] font-mono text-[#AAA]">
-              {item.label}{' '}
-              <span className="text-[#666]">{item.value}</span>
+            <span className={`w-1 h-1 rounded-full shrink-0 ${item.ok ? 'bg-green' : 'bg-ink-4'}`} />
+            <span className="text-[10px] font-mono text-ink-3">
+              {item.label} <span className="text-ink-2">{item.value}</span>
             </span>
           </div>
         ))}
       </div>
-      <span className="text-[10px] font-mono text-[#AAA]">
+      <span className="text-[10px] font-mono text-ink-3">
         {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
       </span>
     </div>
@@ -536,10 +524,21 @@ export default function Dashboard() {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [filter, setFilter] = useState<'all' | 'running' | 'idle'>('all')
-  const [infraCollapsed, setInfraCollapsed] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [isDark, setIsDark] = useState(false)
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? null
+
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains('dark'))
+  }, [])
+
+  function toggleDark() {
+    const next = !isDark
+    setIsDark(next)
+    document.documentElement.classList.toggle('dark', next)
+    try { localStorage.setItem('theme', next ? 'dark' : 'light') } catch {}
+  }
 
   const fetchAgents = useCallback(async () => {
     const res = await fetch('/api/agents')
@@ -553,10 +552,7 @@ export default function Dashboard() {
   }, [])
 
   const fetchMessages = useCallback(async () => {
-    if (!selectedAgentId) {
-      setMessages([])
-      return
-    }
+    if (!selectedAgentId) { setMessages([]); return }
     const res = await fetch(`/api/agents/${selectedAgentId}/messages`)
     if (res.ok) setMessages(await res.json())
   }, [selectedAgentId])
@@ -597,7 +593,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      <TopBar />
+      <TopBar isDark={isDark} onToggleDark={toggleDark} />
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <AgentsSidebar
           agents={agents}
@@ -613,10 +609,9 @@ export default function Dashboard() {
           onToggle={toggleAgent}
           actionLoading={actionLoading}
         />
-        <InboxOutboxPanel messages={messages} agentName={selectedAgent?.name ?? null} />
-        <InfraPanel
-          collapsed={infraCollapsed}
-          onToggle={() => setInfraCollapsed((c) => !c)}
+        <InboxOutboxPanel
+          messages={messages}
+          agentName={selectedAgent?.name ?? null}
           agentsRunning={agents.filter((a) => a.status === 'RUNNING').length}
           agentsTotal={agents.length}
         />
