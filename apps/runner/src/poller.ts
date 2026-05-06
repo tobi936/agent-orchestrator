@@ -1,7 +1,9 @@
 import { prisma } from './db'
-import { createProvider } from './providers'
+import { createProvider, ChatHistoryMessage } from './providers'
 import { appendLog } from './logs'
 import { sandboxes } from './sandboxes'
+
+const MAX_HISTORY = 20
 
 const INTERVAL_MS = 3000
 
@@ -50,7 +52,17 @@ async function tick() {
         }
       }
 
-      reply = await provider.chat(systemPrompt, msg.content, sandbox, (line) => appendLog(agent.id, line))
+      const previousMessages = await prisma.message.findMany({
+        where: { agentId: agent.id, id: { not: msg.id } },
+        orderBy: { createdAt: 'asc' },
+        take: MAX_HISTORY,
+      })
+      const history: ChatHistoryMessage[] = previousMessages.map((m) => ({
+        role: m.direction === 'INBOX' ? 'user' : 'assistant',
+        content: m.content,
+      }))
+
+      reply = await provider.chat(systemPrompt, msg.content, sandbox, (line) => appendLog(agent.id, line), history)
       appendLog(agent.id, `[${new Date().toISOString()}] Reply generated (${reply.length} chars)`)
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err)
