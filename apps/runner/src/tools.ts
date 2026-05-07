@@ -1,5 +1,15 @@
 import { Sandbox } from 'e2b'
 
+const CTAGS_INDEX = '/tmp/ctags.json'
+
+async function rebuildCtags(sandbox: Sandbox): Promise<void> {
+  await sandbox.commands.run(
+    `which ctags >/dev/null 2>&1 || apt-get install -y -q universal-ctags 2>/dev/null || true; ` +
+    `ctags -R --output-format=json --fields=+n -f ${CTAGS_INDEX} . 2>/dev/null || true`,
+    { timeoutMs: 30_000 },
+  )
+}
+
 export class FileTracker {
   private readCache = new Map<string, string>()
 
@@ -175,6 +185,20 @@ export const sandboxTools = [
   {
     type: 'function' as const,
     function: {
+      name: 'get_repo_map',
+      description: 'Get a symbol index of the repository: all classes, functions, and methods with their file and line number. Use this before reading files to understand the codebase structure. The index is automatically kept up to date after every file write.',
+      parameters: {
+        type: 'object',
+        properties: {
+          filter: { type: 'string', description: 'Optional: filter symbols by name (substring match)' },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'print_tree',
       description: 'Print the directory tree of a path in the sandbox.',
       parameters: {
@@ -290,6 +314,7 @@ export async function executeSandboxTool(
       }
       await sandbox.files.write(input.path, input.content)
       tracker?.onWrite(input.path)
+      rebuildCtags(sandbox)
       return `Written: ${input.path}`
     }
 
@@ -298,7 +323,33 @@ export async function executeSandboxTool(
       if (!content.includes(input.old_string)) return `Error: old_string not found in ${input.path}`
       await sandbox.files.write(input.path, content.replace(input.old_string, input.new_string))
       tracker?.onWrite(input.path)
+      rebuildCtags(sandbox)
       return `Edited: ${input.path}`
+    }
+
+    if (name === 'get_repo_map') {
+      // Build index if it doesn't exist yet
+      const check = await sandbox.commands.run(`test -f ${CTAGS_INDEX} && echo ok || echo missing`)
+      if (check.stdout?.trim() !== 'ok') await rebuildCtags(sandbox)
+
+      const raw = await sandbox.files.read(CTAGS_INDEX).catch(() => '')
+      if (!raw) return '(no symbol index available — try run_command to check ctags is installed)'
+
+      const filter = (input.filter ?? '').toLowerCase()
+      const lines = raw.split('\n').filter(Boolean)
+      const symbols: string[] = []
+
+      for (const line of lines) {
+        try {
+          const tag = JSON.parse(line) as { name: string; path: string; line: number; kind: string }
+          if (!['function', 'class', 'method', 'interface', 'type', 'variable', 'module'].includes(tag.kind)) continue
+          if (filter && !tag.name.toLowerCase().includes(filter)) continue
+          symbols.push(`${tag.name.padEnd(40)} ${tag.path}:${tag.line}  [${tag.kind}]`)
+        } catch { /* skip malformed lines */ }
+      }
+
+      if (symbols.length === 0) return filter ? `No symbols matching "${input.filter}"` : '(no symbols found)'
+      return truncate(symbols.join('\n'))
     }
 
     if (name === 'run_command') {
