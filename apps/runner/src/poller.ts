@@ -41,7 +41,7 @@ async function tick() {
       where: { status: 'PENDING', forHuman: false, agent: { status: 'RUNNING' } },
       include: {
         agent: {
-          select: { id: true, systemPrompt: true, name: true, provider: true, model: true, repoUrl: true, maxToolIterations: true },
+          select: { id: true, systemPrompt: true, name: true, provider: true, model: true, repoUrl: true, maxToolIterations: true, allowedTools: true },
         },
         thread: { orderBy: { createdAt: 'asc' } },
       },
@@ -98,6 +98,7 @@ async function tick() {
         history,
         agent.maxToolIterations,
         async (toolName, toolInput) => {
+
           if (toolName === 'route_task') {
             routeTarget = {
               agentId: toolInput.target_agent_id,
@@ -139,6 +140,7 @@ async function tick() {
           if (sandbox) return executeSandboxTool(toolName, toolInput, sandbox)
           return `Tool ${toolName} not available without sandbox`
         },
+        agent.allowedTools.length > 0 ? agent.allowedTools : undefined,
       )
 
       appendLog(agent.id, `[${new Date().toISOString()}] Reply generated (${reply.length} chars)`)
