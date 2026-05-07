@@ -432,6 +432,7 @@ function ChatPanel({
   agent,
   messages,
   toolEvents,
+  toolEventGroups,
   onSend,
   onToggle,
   onDelete,
@@ -441,6 +442,7 @@ function ChatPanel({
   agent: Agent | null
   messages: Message[]
   toolEvents: ToolEvent[]
+  toolEventGroups: Record<string, ToolEvent[]>
   onSend: (content: string) => void
   onToggle: () => void
   onDelete: () => void
@@ -556,13 +558,18 @@ function ChatPanel({
               </div>
             </div>
           ) : (
-            <div key={msg.id} className="flex items-end gap-2">
-              <div className="w-6 h-6 rounded-full bg-ink flex items-center justify-center shrink-0">
-                <span className="text-[9px] font-bold text-bg">C</span>
-              </div>
-              <div className="max-w-[70%] rounded-xl rounded-bl-sm bg-raised border border-line px-3.5 py-2.5 dark:shadow-none shadow-sm">
-                <MarkdownContent content={msg.content} />
-                <p className="text-[10px] text-ink-3 mt-1.5 font-mono">{fmtTime(msg.createdAt)}</p>
+            <div key={msg.id} className="flex flex-col gap-1.5">
+              {toolEventGroups[msg.id]?.length > 0 && (
+                <ActivityBox toolEvents={toolEventGroups[msg.id]} />
+              )}
+              <div className="flex items-end gap-2">
+                <div className="w-6 h-6 rounded-full bg-ink flex items-center justify-center shrink-0">
+                  <span className="text-[9px] font-bold text-bg">C</span>
+                </div>
+                <div className="max-w-[70%] rounded-xl rounded-bl-sm bg-raised border border-line px-3.5 py-2.5 dark:shadow-none shadow-sm">
+                  <MarkdownContent content={msg.content} />
+                  <p className="text-[10px] text-ink-3 mt-1.5 font-mono">{fmtTime(msg.createdAt)}</p>
+                </div>
               </div>
             </div>
           )
@@ -989,12 +996,15 @@ export default function Dashboard() {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [toolEvents, setToolEvents] = useState<ToolEvent[]>([])
+  const [toolEventGroups, setToolEventGroups] = useState<Record<string, ToolEvent[]>>({})
   const [filter, setFilter] = useState<'all' | 'running' | 'idle'>('all')
   const [actionLoading, setActionLoading] = useState(false)
   const [isDark, setIsDark] = useState(false)
   const [mobilePanel, setMobilePanel] = useState<'agents' | 'chat' | 'inbox'>('agents')
   const [error, setError] = useState<string | null>(null)
   const toolEventCounter = useRef(0)
+  const pendingToolEventsRef = useRef<ToolEvent[]>([])
+  const seenOutboxIds = useRef<Set<string>>(new Set())
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? null
 
@@ -1039,11 +1049,33 @@ export default function Dashboard() {
   }, [fetchMessages])
 
   useEffect(() => {
-    if (!selectedAgentId) { setToolEvents([]); return }
+    pendingToolEventsRef.current = toolEvents
+  }, [toolEvents])
+
+  useEffect(() => {
+    const newOutbox = messages
+      .filter((m) => m.direction === 'OUTBOX' && !seenOutboxIds.current.has(m.id))
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+    if (newOutbox.length === 0) return
+
+    newOutbox.forEach((m) => seenOutboxIds.current.add(m.id))
+    const pending = pendingToolEventsRef.current
+    if (pending.length > 0) {
+      const latestNew = newOutbox[newOutbox.length - 1]
+      setToolEventGroups((prev) => ({ ...prev, [latestNew.id]: pending }))
+      setToolEvents([])
+    }
+  }, [messages])
+
+  useEffect(() => {
+    if (!selectedAgentId) { setToolEvents([]); setToolEventGroups({}); seenOutboxIds.current = new Set(); return }
     const selectedAgent = agents.find((a) => a.id === selectedAgentId)
     if (selectedAgent?.status !== 'RUNNING') { setToolEvents([]); return }
 
     setToolEvents([])
+    setToolEventGroups({})
+    seenOutboxIds.current = new Set()
     const es = new EventSource(`/api/agents/${selectedAgentId}/logs`)
     es.onmessage = (e) => {
       try {
@@ -1133,6 +1165,7 @@ export default function Dashboard() {
           agent={selectedAgent}
           messages={messages}
           toolEvents={toolEvents}
+          toolEventGroups={toolEventGroups}
           onSend={sendMessage}
           onToggle={toggleAgent}
           onDelete={deleteAgent}
