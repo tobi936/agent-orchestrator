@@ -24,8 +24,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       fromAgentId: fromAgentId ?? null,
       title: title ?? content.slice(0, 80),
       content,
+      thread: { create: [{ role: 'user', content }] },
     },
-    include: { thread: true },
+    include: { thread: { orderBy: { createdAt: 'asc' } } },
   })
   return NextResponse.json(task, { status: 201 })
 }
