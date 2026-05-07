@@ -291,6 +291,92 @@ function ToolEventRow({ event }: { event: ToolEvent }) {
   )
 }
 
+// ─── ActivityBox ─────────────────────────────────────────────────────────────
+
+function parseActivityStats(toolEvents: ToolEvent[]) {
+  const calls = toolEvents.filter(e => e.type === 'call').length
+  const events = toolEvents.length
+  let linesAdded = 0
+  let linesDeleted = 0
+  const files = new Set<string>()
+
+  for (const ev of toolEvents) {
+    if (ev.type === 'call' && ev.input) {
+      const path = ev.input.path ?? ev.input.file_path ?? ev.input.filename
+      if (path) files.add(path)
+      const content = ev.input.new_str ?? ev.input.content ?? ev.input.new_content ?? ''
+      if (content) linesAdded += content.split('\n').length
+      const old = ev.input.old_str ?? ev.input.old_content ?? ''
+      if (old) linesDeleted += old.split('\n').length
+    }
+    if (ev.type === 'result' && ev.result) {
+      const addMatch = ev.result.match(/\+(\d+)/)
+      const delMatch = ev.result.match(/-(\d+)/)
+      if (addMatch && delMatch) {
+        linesAdded += parseInt(addMatch[1])
+        linesDeleted += parseInt(delMatch[1])
+      }
+    }
+  }
+
+  return { calls, events, files: files.size, linesAdded, linesDeleted }
+}
+
+function ActivityBox({ toolEvents }: { toolEvents: ToolEvent[] }) {
+  const [open, setOpen] = useState(true)
+  const stats = parseActivityStats(toolEvents)
+
+  return (
+    <div className="border border-line rounded-lg bg-surface overflow-hidden">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-hover transition-colors"
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+        <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Activity</span>
+        <div className="ml-auto flex items-center gap-2">
+          {!open && (
+            <span className="flex items-center gap-2 text-[10px] font-mono text-ink-4">
+              <span>{stats.calls} calls</span>
+              <span className="text-ink-5">·</span>
+              <span>{stats.events} events</span>
+              {stats.files > 0 && (
+                <>
+                  <span className="text-ink-5">·</span>
+                  <span>{stats.files} files</span>
+                </>
+              )}
+              {(stats.linesAdded > 0 || stats.linesDeleted > 0) && (
+                <>
+                  <span className="text-ink-5">·</span>
+                  {stats.linesAdded > 0 && <span className="text-green-fg">+{stats.linesAdded}</span>}
+                  {stats.linesDeleted > 0 && <span className="text-red-500">−{stats.linesDeleted}</span>}
+                </>
+              )}
+            </span>
+          )}
+          <svg
+            width="10" height="10" viewBox="0 0 10 10" fill="none"
+            className={`text-ink-4 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
+          >
+            <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+      </button>
+
+      <div className={`grid transition-all duration-200 ease-in-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+        <div className="overflow-hidden">
+          <div className="border-t border-line px-3 py-2 space-y-1.5 max-h-80 overflow-y-auto">
+            {toolEvents.map((ev) => (
+              <ToolEventRow key={ev.id} event={ev} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ChatPanel({
   agent,
   messages,
@@ -432,20 +518,7 @@ function ChatPanel({
         )}
 
         {toolEvents.length > 0 && (
-          <div className="border border-line rounded-lg bg-surface overflow-hidden">
-            <div className="px-3 py-1.5 border-b border-line bg-raised flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Activity</span>
-              <span className="ml-auto text-[10px] font-mono text-ink-4">
-                {toolEvents.filter(e => e.type === 'call').length} calls · {toolEvents.length} events
-              </span>
-            </div>
-            <div className="px-3 py-2 space-y-1.5 max-h-80 overflow-y-auto">
-              {toolEvents.map((ev) => (
-                <ToolEventRow key={ev.id} event={ev} />
-              ))}
-            </div>
-          </div>
+          <ActivityBox toolEvents={toolEvents} />
         )}
 
         <div ref={messagesEndRef} />
