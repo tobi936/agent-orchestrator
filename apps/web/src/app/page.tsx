@@ -372,11 +372,10 @@ function ToolEventRow({ event }: { event: ToolEvent }) {
   )
 }
 
-function ActivityBox({ toolEvents }: { toolEvents: ToolEvent[] }) {
-  const [open, setOpen] = useState(true)
+function ActivityBox({ toolEvents, open, onToggle }: { toolEvents: ToolEvent[], open: boolean, onToggle: () => void }) {
   return (
     <div className="border border-line rounded-lg bg-surface overflow-hidden">
-      <button onClick={() => setOpen(v => !v)} className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-hover transition-colors">
+      <button onClick={onToggle} className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-hover transition-colors">
         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
         <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Activity</span>
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className={`ml-auto text-ink-4 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}>
@@ -403,6 +402,8 @@ function TaskThread({
   onSendReply,
   onBack,
   mobileVisible,
+  activityOpen,
+  onActivityToggle,
 }: {
   task: Task
   agent: Agent
@@ -410,6 +411,8 @@ function TaskThread({
   onSendReply: (taskId: string, content: string) => void
   onBack: () => void
   mobileVisible: boolean
+  activityOpen: boolean
+  onActivityToggle: () => void
 }) {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -490,7 +493,7 @@ function TaskThread({
           )
         )}
 
-        {toolEvents.length > 0 && <ActivityBox toolEvents={toolEvents} />}
+        {toolEvents.length > 0 && <ActivityBox toolEvents={toolEvents} open={activityOpen} onToggle={onActivityToggle} />}
         <div ref={messagesEndRef} />
       </div>
 
@@ -539,6 +542,8 @@ function AgentChat({
   onSendTask,
   onSelectTask,
   onToggle,
+  activityOpen,
+  onActivityToggle,
   onDelete,
   actionLoading,
   toolEvents,
@@ -553,6 +558,8 @@ function AgentChat({
   actionLoading: boolean
   toolEvents: ToolEvent[]
   mobileVisible: boolean
+  activityOpen: boolean
+  onActivityToggle: () => void
 }) {
   const [input, setInput] = useState('')
 
@@ -601,7 +608,7 @@ function AgentChat({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-        {toolEvents.length > 0 && <ActivityBox toolEvents={toolEvents} />}
+        {toolEvents.length > 0 && <ActivityBox toolEvents={toolEvents} open={activityOpen} onToggle={onActivityToggle} />}
 
         {activeTasks.length === 0 && doneTasks.length === 0 && (
           <div className="flex items-center justify-center h-full">
@@ -1083,6 +1090,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null)
   const [sidebarView, setSidebarView] = useState<SidebarView>('agents')
   const [backlogTab, setBacklogTab] = useState<'inbox' | 'outbox' | 'settings'>('inbox')
+  const [activityOpen, setActivityOpen] = useState(true)
   const toolEventCounter = useRef(0)
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? null
@@ -1286,6 +1294,8 @@ export default function Dashboard() {
             onSendReply={sendReply}
             onBack={handleBackToAgent}
             mobileVisible={mobilePanel === 'chat'}
+            activityOpen={activityOpen}
+            onActivityToggle={() => setActivityOpen(v => !v)}
           />
         ) : (
           <AgentChat
@@ -1298,6 +1308,8 @@ export default function Dashboard() {
             actionLoading={actionLoading}
             toolEvents={toolEvents}
             mobileVisible={mobilePanel === 'chat'}
+            activityOpen={activityOpen}
+            onActivityToggle={() => setActivityOpen(v => !v)}
           />
         )}
 
