@@ -1,5 +1,29 @@
 import { Sandbox } from 'e2b'
 
+export class FileTracker {
+  private readCache = new Map<string, string>()
+
+  onRead(path: string, content: string) {
+    this.readCache.set(path, content)
+  }
+
+  // Returns cached content if file is unchanged, null if re-read is needed
+  getCached(path: string, currentContent: string): string | null {
+    const cached = this.readCache.get(path)
+    if (cached !== undefined && cached === currentContent) return cached
+    return null
+  }
+
+  hasRead(path: string): boolean {
+    return this.readCache.has(path)
+  }
+
+  // After write, invalidate cache so next write requires re-read
+  onWrite(path: string) {
+    this.readCache.delete(path)
+  }
+}
+
 export const sandboxTools = [
   {
     type: 'function' as const,
@@ -239,12 +263,25 @@ export async function executeSandboxTool(
   name: string,
   input: Record<string, string>,
   sandbox: Sandbox,
+  tracker?: FileTracker,
 ): Promise<string> {
   try {
-    if (name === 'read_file') return await sandbox.files.read(input.path)
+    if (name === 'read_file') {
+      const current = await sandbox.files.read(input.path)
+      if (tracker) {
+        const cached = tracker.getCached(input.path, current)
+        if (cached !== null) return cached
+        tracker.onRead(input.path, current)
+      }
+      return current
+    }
 
     if (name === 'write_file') {
+      if (tracker && !tracker.hasRead(input.path)) {
+        return `Error: you must read_file("${input.path}") before writing it`
+      }
       await sandbox.files.write(input.path, input.content)
+      tracker?.onWrite(input.path)
       return `Written: ${input.path}`
     }
 
@@ -252,6 +289,7 @@ export async function executeSandboxTool(
       const content = await sandbox.files.read(input.path)
       if (!content.includes(input.old_string)) return `Error: old_string not found in ${input.path}`
       await sandbox.files.write(input.path, content.replace(input.old_string, input.new_string))
+      tracker?.onWrite(input.path)
       return `Edited: ${input.path}`
     }
 

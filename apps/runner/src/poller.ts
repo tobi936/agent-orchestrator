@@ -2,7 +2,7 @@ import { prisma } from './db'
 import { createProvider, ChatHistoryMessage } from './providers'
 import { appendLog } from './logs'
 import { sandboxes } from './sandboxes'
-import { executeSandboxTool, ghTools, executeGhTool } from './tools'
+import { executeSandboxTool, executeGhTool, ghTools, FileTracker } from './tools'
 import { startAgent } from './start'
 
 const INTERVAL_MS = 3000
@@ -80,6 +80,7 @@ async function tick() {
     try {
       const provider = createProvider({ provider: agent.provider, model: agent.model })
       const sandbox = sandboxes.get(agent.id)
+      const fileTracker = new FileTracker()
 
       const otherAgents = allAgents.filter((a) => a.id !== agent.id)
       const agentList = otherAgents.length > 0
@@ -159,7 +160,7 @@ async function tick() {
             return `Agent ${toolInput.agent_id} updated: ${Object.keys(data).join(', ')}`
           }
           if (toolName.startsWith('gh_')) return executeGhTool(toolName, toolInput as Record<string, string | number>)
-          if (sandbox) return executeSandboxTool(toolName, toolInput, sandbox)
+          if (sandbox) return executeSandboxTool(toolName, toolInput, sandbox, fileTracker)
           return `Tool ${toolName} not available without sandbox`
         },
         agent.allowedTools.length > 0 ? agent.allowedTools : undefined,
