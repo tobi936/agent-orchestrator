@@ -111,7 +111,8 @@ async function runToolLoop(
       log?.(`[TOOL]${JSON.stringify({ type: 'call', name: tc.function.name, input })}`)
 
       let result: string
-      if (customToolHandler && (tc.function.name === 'route_task' || tc.function.name === 'ask_human')) {
+      const isOrchestrationTool = ['route_task', 'ask_human', 'create_agent', 'update_agent'].includes(tc.function.name)
+      if (customToolHandler && isOrchestrationTool) {
         result = await customToolHandler(tc.function.name, input)
       } else if (sandbox) {
         result = await executeSandboxTool(tc.function.name, input, sandbox)
@@ -193,7 +194,8 @@ async function runAnthropicToolLoop(
       log?.(`[TOOL]${JSON.stringify({ type: 'call', name: block.name, input: block.input })}`)
 
       let result: string
-      if (customToolHandler && (block.name === 'route_task' || block.name === 'ask_human')) {
+      const isOrchestrationTool = ['route_task', 'ask_human', 'create_agent', 'update_agent'].includes(block.name)
+      if (customToolHandler && isOrchestrationTool) {
         result = await customToolHandler(block.name, block.input)
       } else if (sandbox) {
         result = await executeSandboxTool(block.name, block.input, sandbox)
