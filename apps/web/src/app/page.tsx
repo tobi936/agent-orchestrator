@@ -1049,7 +1049,6 @@ export default function Dashboard() {
 
   async function sendMessage(content: string) {
     if (!selectedAgentId) return
-    setToolEvents([])
     await fetch(`/api/agents/${selectedAgentId}/inbox`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
