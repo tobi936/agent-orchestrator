@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown'
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type AgentStatus = 'STOPPED' | 'RUNNING'
+type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE'
 
 interface Agent {
   id: string
@@ -20,12 +21,26 @@ interface Agent {
   containerId: string | null
 }
 
-interface Message {
+interface TaskMessage {
   id: string
-  direction: 'INBOX' | 'OUTBOX'
+  taskId: string
+  role: 'user' | 'agent'
   content: string
-  processed: boolean
   createdAt: string
+}
+
+interface Task {
+  id: string
+  agentId: string
+  fromAgentId: string | null
+  fromAgent?: { id: string; name: string } | null
+  agent?: { id: string; name: string }
+  title: string
+  content: string
+  status: TaskStatus
+  forHuman: boolean
+  createdAt: string
+  thread: TaskMessage[]
 }
 
 interface ToolEvent {
@@ -39,14 +54,18 @@ interface ToolEvent {
   ts: number
 }
 
+type SidebarView = 'agents' | 'human'
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-function fmtTimeFull(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+function statusColor(status: TaskStatus) {
+  if (status === 'PENDING') return 'bg-orange-bg text-orange-fg'
+  if (status === 'IN_PROGRESS') return 'bg-accent-bg text-accent-fg'
+  return 'bg-green-bg text-green-fg'
 }
 
 // ─── MarkdownContent ─────────────────────────────────────────────────────────
@@ -56,12 +75,6 @@ function MarkdownContent({ content, light }: { content: string; light?: boolean 
   return (
     <ReactMarkdown
       components={{
-        table: ({ children }) => <div className="overflow-x-auto"><table className="w-full border-collapse mb-2">{children}</table></div>,
-        thead: ({ children }) => <thead className="bg-ink-5 border-b border-line">{children}</thead>,
-        tbody: ({ children }) => <tbody>{children}</tbody>,
-        tr: ({ children }) => <tr className="border-b border-line last:border-0">{children}</tr>,
-        th: ({ children }) => <th className="px-2 py-1 text-left text-[11px] font-medium text-ink-3 bg-ink-6 border border-line">{children}</th>,
-        td: ({ children }) => <td className="px-2 py-1 text-[11px] text-ink-2 border border-line">{children}</td>,
         p: ({ children }) => <p className={`text-[13px] leading-relaxed mb-1.5 last:mb-0 ${prose}`}>{children}</p>,
         ul: ({ children }) => <ul className="list-disc list-outside pl-4 mb-1.5 last:mb-0 space-y-0.5">{children}</ul>,
         ol: ({ children }) => <ol className="list-decimal list-outside pl-4 mb-1.5 last:mb-0 space-y-0.5">{children}</ol>,
@@ -127,13 +140,9 @@ function SunIcon() {
   )
 }
 
-// ─── StatusDot ───────────────────────────────────────────────────────────────
-
 function StatusDot({ status }: { status: AgentStatus }) {
   return (
-    <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
-      status === 'RUNNING' ? 'bg-green' : 'bg-ink-4'
-    }`} />
+    <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${status === 'RUNNING' ? 'bg-green' : 'bg-ink-4'}`} />
   )
 }
 
@@ -153,16 +162,10 @@ function TopBar({ isDark, onToggleDark }: { isDark: boolean; onToggleDark: () =>
         </div>
         <span className="text-sm font-semibold tracking-tight text-ink">Orchestrator</span>
         <span className="h-3.5 w-px bg-line hidden sm:block" />
-        <span className="hidden sm:inline text-[11px] font-medium text-ink-3 px-1.5 py-0.5 bg-hover rounded border border-line">
-          dev
-        </span>
+        <span className="hidden sm:inline text-[11px] font-medium text-ink-3 px-1.5 py-0.5 bg-hover rounded border border-line">dev</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <button
-          onClick={onToggleDark}
-          title={isDark ? 'Light mode' : 'Dark mode'}
-          className="w-7 h-7 rounded-md flex items-center justify-center text-ink-3 hover:text-ink hover:bg-hover transition-colors"
-        >
+        <button onClick={onToggleDark} title={isDark ? 'Light mode' : 'Dark mode'} className="w-7 h-7 rounded-md flex items-center justify-center text-ink-3 hover:text-ink hover:bg-hover transition-colors">
           {isDark ? <SunIcon /> : <MoonIcon />}
         </button>
         <div className="w-7 h-7 rounded-full bg-hover border border-line flex items-center justify-center">
@@ -173,21 +176,27 @@ function TopBar({ isDark, onToggleDark }: { isDark: boolean; onToggleDark: () =>
   )
 }
 
-// ─── AgentsSidebar ───────────────────────────────────────────────────────────
+// ─── Sidebar ─────────────────────────────────────────────────────────────────
 
-function AgentsSidebar({
+function Sidebar({
   agents,
-  selectedId,
-  onSelect,
+  selectedAgentId,
+  onSelectAgent,
+  view,
+  onViewChange,
   filter,
   onFilterChange,
+  humanTaskCount,
   mobileVisible,
 }: {
   agents: Agent[]
-  selectedId: string | null
-  onSelect: (id: string) => void
+  selectedAgentId: string | null
+  onSelectAgent: (id: string) => void
+  view: SidebarView
+  onViewChange: (v: SidebarView) => void
   filter: 'all' | 'running' | 'idle'
   onFilterChange: (f: 'all' | 'running' | 'idle') => void
+  humanTaskCount: number
   mobileVisible: boolean
 }) {
   const router = useRouter()
@@ -201,8 +210,32 @@ function AgentsSidebar({
 
   return (
     <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex w-full md:w-[240px] shrink-0 flex-col border-r border-line sidebar-panel overflow-hidden`}>
-      <div className="px-3 pt-3 pb-2 shrink-0">
-        <div className="flex items-center justify-between mb-2.5">
+      {/* Human inbox button */}
+      <button
+        onClick={() => onViewChange('human')}
+        className={`mx-2 mt-2 mb-1 flex items-center gap-2 px-2.5 py-2 rounded-md transition-colors text-left ${
+          view === 'human' ? 'bg-selected text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink'
+        }`}
+      >
+        <span className="w-5 h-5 rounded bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="text-amber-600 dark:text-amber-400">
+            <circle cx="5.5" cy="3.5" r="1.8" />
+            <path d="M1.5 9.5c0-2.2 1.8-4 4-4s4 1.8 4 4" />
+          </svg>
+        </span>
+        <span className="text-[12px] font-medium flex-1">Human Inbox</span>
+        {humanTaskCount > 0 && (
+          <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] flex items-center justify-center font-mono leading-none">
+            {humanTaskCount > 9 ? '9+' : humanTaskCount}
+          </span>
+        )}
+      </button>
+
+      <div className="h-px bg-line mx-2 my-1" />
+
+      {/* Agents list */}
+      <div className="px-3 pt-2 pb-2 shrink-0">
+        <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Agents</span>
           <span className="text-[10px] font-mono text-ink-4">{agents.length}</span>
         </div>
@@ -210,18 +243,12 @@ function AgentsSidebar({
           {(['all', 'running', 'idle'] as const).map((f) => (
             <button
               key={f}
-              onClick={() => onFilterChange(f)}
+              onClick={() => { onFilterChange(f); onViewChange('agents') }}
               className={`text-[11px] font-medium px-2 py-0.5 rounded-full transition-colors ${
-                filter === f
-                  ? 'bg-ink text-bg'
-                  : 'text-ink-3 hover:text-ink hover:bg-hover'
+                view === 'agents' && filter === f ? 'bg-ink text-bg' : 'text-ink-3 hover:text-ink hover:bg-hover'
               }`}
             >
-              {f === 'all'
-                ? 'All'
-                : f === 'running'
-                ? `Running${runningCount > 0 ? ` ${runningCount}` : ''}`
-                : 'Idle'}
+              {f === 'all' ? 'All' : f === 'running' ? `Running${runningCount > 0 ? ` ${runningCount}` : ''}` : 'Idle'}
             </button>
           ))}
         </div>
@@ -234,16 +261,12 @@ function AgentsSidebar({
           filtered.map((agent) => (
             <button
               key={agent.id}
-              onClick={() => onSelect(agent.id)}
+              onClick={() => { onSelectAgent(agent.id); onViewChange('agents') }}
               className={`w-full flex items-start gap-2 px-2.5 py-2 rounded-md transition-colors text-left ${
-                selectedId === agent.id
-                  ? 'bg-selected text-ink'
-                  : 'text-ink-2 hover:bg-hover hover:text-ink'
+                view === 'agents' && selectedAgentId === agent.id ? 'bg-selected text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink'
               }`}
             >
-              <span className="mt-[5px]">
-                <StatusDot status={agent.status} />
-              </span>
+              <span className="mt-[5px]"><StatusDot status={agent.status} /></span>
               <div className="min-w-0 flex-1">
                 <p className="text-[12px] font-medium truncate leading-tight">{agent.name}</p>
                 <p className="text-[10px] text-ink-3 truncate mt-0.5 leading-tight">{agent.systemPrompt}</p>
@@ -266,7 +289,7 @@ function AgentsSidebar({
   )
 }
 
-// ─── ChatPanel ───────────────────────────────────────────────────────────────
+// ─── Tool Events ──────────────────────────────────────────────────────────────
 
 function ToolEventRow({ event }: { event: ToolEvent }) {
   const [expanded, setExpanded] = useState(false)
@@ -348,85 +371,21 @@ function ToolEventRow({ event }: { event: ToolEvent }) {
   )
 }
 
-// ─── ActivityBox ─────────────────────────────────────────────────────────────
-
-function parseActivityStats(toolEvents: ToolEvent[]) {
-  const calls = toolEvents.filter(e => e.type === 'call').length
-  const events = toolEvents.length
-  let linesAdded = 0
-  let linesDeleted = 0
-  const files = new Set<string>()
-
-  for (const ev of toolEvents) {
-    if (ev.type === 'call' && ev.input) {
-      const path = ev.input.path ?? ev.input.file_path ?? ev.input.filename
-      if (path) files.add(path)
-      const content = ev.input.new_str ?? ev.input.content ?? ev.input.new_content ?? ''
-      if (content) linesAdded += content.split('\n').length
-      const old = ev.input.old_str ?? ev.input.old_content ?? ''
-      if (old) linesDeleted += old.split('\n').length
-    }
-    if (ev.type === 'result' && ev.result) {
-      const addMatch = ev.result.match(/\+(\d+)/)
-      const delMatch = ev.result.match(/-(\d+)/)
-      if (addMatch && delMatch) {
-        linesAdded += parseInt(addMatch[1])
-        linesDeleted += parseInt(delMatch[1])
-      }
-    }
-  }
-
-  return { calls, events, files: files.size, linesAdded, linesDeleted }
-}
-
 function ActivityBox({ toolEvents }: { toolEvents: ToolEvent[] }) {
   const [open, setOpen] = useState(true)
-  const stats = parseActivityStats(toolEvents)
-
   return (
     <div className="border border-line rounded-lg bg-surface overflow-hidden">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-hover transition-colors"
-      >
+      <button onClick={() => setOpen(v => !v)} className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-hover transition-colors">
         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
         <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Activity</span>
-        <div className="ml-auto flex items-center gap-2">
-          {!open && (
-            <span className="flex items-center gap-2 text-[10px] font-mono text-ink-4">
-              <span>{stats.calls} calls</span>
-              <span className="text-ink-5">·</span>
-              <span>{stats.events} events</span>
-              {stats.files > 0 && (
-                <>
-                  <span className="text-ink-5">·</span>
-                  <span>{stats.files} files</span>
-                </>
-              )}
-              {(stats.linesAdded > 0 || stats.linesDeleted > 0) && (
-                <>
-                  <span className="text-ink-5">·</span>
-                  {stats.linesAdded > 0 && <span className="text-green-fg">+{stats.linesAdded}</span>}
-                  {stats.linesDeleted > 0 && <span className="text-red-500">−{stats.linesDeleted}</span>}
-                </>
-              )}
-            </span>
-          )}
-          <svg
-            width="10" height="10" viewBox="0 0 10 10" fill="none"
-            className={`text-ink-4 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
-          >
-            <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className={`ml-auto text-ink-4 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}>
+          <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
       </button>
-
       <div className={`grid transition-all duration-200 ease-in-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
         <div className="overflow-hidden">
           <div className="border-t border-line px-3 py-2 space-y-1.5 max-h-80 overflow-y-auto">
-            {toolEvents.map((ev) => (
-              <ToolEventRow key={ev.id} event={ev} />
-            ))}
+            {toolEvents.map((ev) => <ToolEventRow key={ev.id} event={ev} />)}
           </div>
         </div>
       </div>
@@ -434,59 +393,173 @@ function ActivityBox({ toolEvents }: { toolEvents: ToolEvent[] }) {
   )
 }
 
-function ChatPanel({
+// ─── TaskThread (main chat area for a selected task) ─────────────────────────
+
+function TaskThread({
+  task,
   agent,
-  messages,
   toolEvents,
-  toolEventGroups,
-  onSend,
-  onToggle,
-  onDelete,
-  actionLoading,
+  onSendReply,
+  onBack,
   mobileVisible,
 }: {
-  agent: Agent | null
-  messages: Message[]
+  task: Task
+  agent: Agent
   toolEvents: ToolEvent[]
-  toolEventGroups: Record<string, ToolEvent[]>
-  onSend: (content: string) => void
-  onToggle: () => void
-  onDelete: () => void
-  actionLoading: boolean
+  onSendReply: (taskId: string, content: string) => void
+  onBack: () => void
   mobileVisible: boolean
 }) {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const isAtBottomRef = useRef(true)
-  const lastMessageCountRef = useRef(0)
-
-  function checkIfAtBottom() {
-    const el = scrollContainerRef.current
-    if (!el) return true
-    return el.scrollHeight - el.scrollTop - el.clientHeight < 60
-  }
-
-  function handleScroll() {
-    isAtBottomRef.current = checkIfAtBottom()
-  }
 
   useEffect(() => {
-    const newCount = messages.length
-    const added = newCount > lastMessageCountRef.current
-    lastMessageCountRef.current = newCount
-    if (added && isAtBottomRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [messages])
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [task.thread.length, toolEvents.length])
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!input.trim()) return
+    onSendReply(task.id, input.trim())
+    setInput('')
+  }
+
+  const canReply = task.forHuman || task.status === 'DONE'
+
+  return (
+    <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex flex-1 min-w-0 flex-col border-r border-line`}>
+      <div className="h-11 px-4 flex items-center gap-3 border-b border-line shrink-0 bg-raised">
+        <button onClick={onBack} className="text-ink-3 hover:text-ink transition-colors">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 11L5 7l4-4" />
+          </svg>
+        </button>
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <StatusDot status={agent.status} />
+          <span className="text-sm font-semibold text-ink truncate">{agent.name}</span>
+          <span className="text-ink-4 text-[11px]">/</span>
+          <span className="text-[12px] text-ink-2 truncate">{task.title}</span>
+        </div>
+        <span className={`text-[10px] font-mono px-1.5 py-px rounded-full shrink-0 ${statusColor(task.status)}`}>
+          {task.status.toLowerCase().replace('_', ' ')}
+        </span>
+        {task.forHuman && (
+          <span className="text-[10px] font-mono px-1.5 py-px rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 shrink-0">
+            waiting for you
+          </span>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 chat-bg">
+        {/* Initial task */}
+        <div className="flex items-end gap-2 justify-end">
+          <div className="max-w-[70%] rounded-xl rounded-br-sm bg-accent px-3.5 py-2.5 shadow-sm dark:shadow-none">
+            <p className="text-[10px] text-white/60 mb-1 font-mono">
+              {task.fromAgent ? `from ${task.fromAgent.name}` : 'from human'} · {fmtTime(task.createdAt)}
+            </p>
+            <MarkdownContent content={task.content} light />
+          </div>
+          <div className="w-6 h-6 rounded-full bg-accent-bg border border-accent-bdr flex items-center justify-center shrink-0">
+            <span className="text-[9px] font-bold text-accent-fg">{task.fromAgent ? 'A' : 'U'}</span>
+          </div>
+        </div>
+
+        {/* Thread messages */}
+        {task.thread.map((msg) =>
+          msg.role === 'user' ? (
+            <div key={msg.id} className="flex items-end gap-2 justify-end">
+              <div className="max-w-[70%] rounded-xl rounded-br-sm bg-accent px-3.5 py-2.5 shadow-sm dark:shadow-none">
+                <MarkdownContent content={msg.content} light />
+                <p className="text-[10px] text-white/50 font-mono mt-1">{fmtTime(msg.createdAt)}</p>
+              </div>
+              <div className="w-6 h-6 rounded-full bg-accent-bg border border-accent-bdr flex items-center justify-center shrink-0">
+                <span className="text-[9px] font-bold text-accent-fg">U</span>
+              </div>
+            </div>
+          ) : (
+            <div key={msg.id} className="flex items-end gap-2">
+              <div className="w-6 h-6 rounded-full bg-ink flex items-center justify-center shrink-0">
+                <span className="text-[9px] font-bold text-bg">A</span>
+              </div>
+              <div className="max-w-[70%] rounded-xl rounded-bl-sm bg-raised border border-line px-3.5 py-2.5 shadow-sm dark:shadow-none">
+                <MarkdownContent content={msg.content} />
+                <p className="text-[10px] text-ink-3 font-mono mt-1">{fmtTime(msg.createdAt)}</p>
+              </div>
+            </div>
+          )
+        )}
+
+        {toolEvents.length > 0 && <ActivityBox toolEvents={toolEvents} />}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="px-4 py-3 shrink-0 border-t border-line bg-raised">
+        {task.forHuman ? (
+          <form onSubmit={handleSubmit} className="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Reply to agent…"
+              className="flex-1 bg-raised border border-amber-300 dark:border-amber-700 rounded-lg px-3.5 py-2 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-amber-500 transition-colors"
+            />
+            <button type="submit" disabled={!input.trim()} className="bg-amber-500 hover:opacity-90 disabled:opacity-40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-opacity">
+              Reply
+            </button>
+          </form>
+        ) : canReply ? (
+          <form onSubmit={handleSubmit} className="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Follow-up message…"
+              className="flex-1 bg-raised border border-line rounded-lg px-3.5 py-2 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent transition-colors"
+            />
+            <button type="submit" disabled={!input.trim()} className="bg-accent hover:opacity-90 disabled:opacity-40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-opacity">
+              Send
+            </button>
+          </form>
+        ) : (
+          <p className="text-[11px] text-ink-4 text-center">
+            {task.status === 'IN_PROGRESS' ? 'Agent is working…' : 'Task pending — agent will pick it up shortly.'}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── AgentChat (no task selected — shows agent overview + send new task) ──────
+
+function AgentChat({
+  agent,
+  tasks,
+  onSendTask,
+  onSelectTask,
+  onToggle,
+  onDelete,
+  actionLoading,
+  toolEvents,
+  mobileVisible,
+}: {
+  agent: Agent | null
+  tasks: Task[]
+  onSendTask: (content: string) => void
+  onSelectTask: (taskId: string) => void
+  onToggle: () => void
+  onDelete: () => void
+  actionLoading: boolean
+  toolEvents: ToolEvent[]
+  mobileVisible: boolean
+}) {
+  const [input, setInput] = useState('')
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!input.trim() || !agent || agent.status !== 'RUNNING') return
-    onSend(input.trim())
+    onSendTask(input.trim())
     setInput('')
-    isAtBottomRef.current = true
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
   }
 
   if (!agent) {
@@ -497,12 +570,14 @@ function ChatPanel({
             <div className="w-4 h-4 rounded-[3px] bg-accent opacity-30" />
           </div>
           <p className="text-sm font-medium text-ink-2">Select an agent</p>
-          <p className="text-xs text-ink-3 mt-0.5 hidden md:block">Pick one from the left to start</p>
-          <p className="text-xs text-ink-3 mt-0.5 md:hidden">Pick one from the Agents tab</p>
+          <p className="text-xs text-ink-3 mt-0.5">Pick one from the left to start</p>
         </div>
       </div>
     )
   }
+
+  const activeTasks = tasks.filter((t) => t.status !== 'DONE')
+  const doneTasks = tasks.filter((t) => t.status === 'DONE')
 
   return (
     <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex flex-1 min-w-0 flex-col border-r border-line`}>
@@ -510,88 +585,52 @@ function ChatPanel({
         <div className="flex items-center gap-2">
           <StatusDot status={agent.status} />
           <span className="text-sm font-semibold text-ink">{agent.name}</span>
-          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full font-mono ${
-            agent.status === 'RUNNING'
-              ? 'bg-green-bg text-green-fg'
-              : 'bg-hover text-ink-3'
-          }`}>
+          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full font-mono ${agent.status === 'RUNNING' ? 'bg-green-bg text-green-fg' : 'bg-hover text-ink-3'}`}>
             {agent.status === 'RUNNING' ? 'running' : 'idle'}
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <button
-            onClick={onToggle}
-            disabled={actionLoading}
-            className={`text-[11px] font-medium px-3 py-1 rounded-md transition-colors disabled:opacity-50 ${
-              agent.status === 'RUNNING'
-                ? 'bg-raised border border-line text-ink-2 hover:bg-hover hover:text-ink'
-                : 'bg-accent text-white hover:opacity-90'
-            }`}
-          >
+          <button onClick={onToggle} disabled={actionLoading} className={`text-[11px] font-medium px-3 py-1 rounded-md transition-colors disabled:opacity-50 ${agent.status === 'RUNNING' ? 'bg-raised border border-line text-ink-2 hover:bg-hover hover:text-ink' : 'bg-accent text-white hover:opacity-90'}`}>
             {actionLoading ? '…' : agent.status === 'RUNNING' ? 'Stop' : 'Start'}
           </button>
-          <button
-            onClick={onDelete}
-            disabled={actionLoading || agent.status === 'RUNNING'}
-            title="Delete agent"
-            className="text-[11px] font-medium px-2 py-1 rounded-md text-ink-3 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          >
+          <button onClick={onDelete} disabled={actionLoading || agent.status === 'RUNNING'} title="Delete agent" className="text-[11px] font-medium px-2 py-1 rounded-md text-ink-3 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
             Delete
           </button>
         </div>
       </div>
 
-      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 relative chat-bg">
-        {messages.length === 0 && toolEvents.length === 0 && (
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+        {toolEvents.length > 0 && <ActivityBox toolEvents={toolEvents} />}
+
+        {activeTasks.length === 0 && doneTasks.length === 0 && (
           <div className="flex items-center justify-center h-full">
             <p className="text-xs text-ink-3">
-              {agent.status === 'RUNNING'
-                ? 'No messages yet — send one below.'
-                : 'Start the agent to begin.'}
+              {agent.status === 'RUNNING' ? 'No tasks — send one below.' : 'Start the agent to begin.'}
             </p>
           </div>
         )}
 
-        {messages.map((msg) =>
-          msg.direction === 'INBOX' ? (
-            <div key={msg.id} className="flex items-end gap-2 justify-end">
-              <div className="max-w-[70%] rounded-xl rounded-br-sm bg-accent px-3.5 py-2.5 dark:shadow-none shadow-sm">
-                <MarkdownContent content={msg.content} light />
-                <div className="flex items-center justify-between mt-1">
-                  <button onClick={() => navigator.clipboard.writeText(msg.content)} className="p-0.5 text-ink-4 hover:text-ink-2" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="w-3 h-3"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
-                  <p className="text-[10px] text-white/50 font-mono">{fmtTime(msg.createdAt)}</p>
-                </div>
-              </div>
-              <div className="w-6 h-6 rounded-full bg-accent-bg border border-accent-bdr flex items-center justify-center shrink-0">
-                <span className="text-[9px] font-bold text-accent-fg">U</span>
-              </div>
+        {activeTasks.length > 0 && (
+          <div>
+            <p className="text-[9px] font-semibold text-ink-3 uppercase tracking-widest mb-1.5">Active</p>
+            <div className="space-y-1.5">
+              {activeTasks.map((task) => (
+                <TaskCard key={task.id} task={task} onClick={() => onSelectTask(task.id)} />
+              ))}
             </div>
-          ) : (
-            <div key={msg.id} className="flex flex-col gap-1.5">
-              {toolEventGroups[msg.id]?.length > 0 && (
-                <ActivityBox toolEvents={toolEventGroups[msg.id]} />
-              )}
-              <div className="flex items-end gap-2">
-                <div className="w-6 h-6 rounded-full bg-ink flex items-center justify-center shrink-0">
-                  <span className="text-[9px] font-bold text-bg">C</span>
-                </div>
-                <div className="max-w-[70%] rounded-xl rounded-bl-sm bg-raised border border-line px-3.5 py-2.5 dark:shadow-none shadow-sm">
-                  <MarkdownContent content={msg.content} />
-                  <div className="flex items-center justify-between mt-1">
-                    <button onClick={() => navigator.clipboard.writeText(msg.content)} className="p-0.5 text-ink-4 hover:text-ink-2" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="w-3 h-3"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
-                    <p className="text-[10px] text-ink-3 font-mono">{fmtTime(msg.createdAt)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )
+          </div>
         )}
 
-        {toolEvents.length > 0 && (
-          <ActivityBox toolEvents={toolEvents} />
+        {doneTasks.length > 0 && (
+          <div>
+            <p className="text-[9px] font-semibold text-ink-3 uppercase tracking-widest mb-1.5 mt-3">Done</p>
+            <div className="space-y-1.5">
+              {doneTasks.slice(0, 10).map((task) => (
+                <TaskCard key={task.id} task={task} onClick={() => onSelectTask(task.id)} />
+              ))}
+            </div>
+          </div>
         )}
-
-        <div ref={messagesEndRef} />
       </div>
 
       <div className="px-4 py-3 shrink-0 border-t border-line bg-raised">
@@ -600,15 +639,11 @@ function ChatPanel({
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={agent.status === 'RUNNING' ? 'Message…' : 'Start the agent first'}
+            placeholder={agent.status === 'RUNNING' ? 'New task…' : 'Start the agent first'}
             disabled={agent.status !== 'RUNNING'}
             className="flex-1 bg-raised border border-line rounded-lg px-3.5 py-2 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent transition-colors disabled:opacity-50 disabled:bg-hover"
           />
-          <button
-            type="submit"
-            disabled={agent.status !== 'RUNNING' || !input.trim()}
-            className="bg-accent hover:opacity-90 disabled:opacity-40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-opacity"
-          >
+          <button type="submit" disabled={agent.status !== 'RUNNING' || !input.trim()} className="bg-accent hover:opacity-90 disabled:opacity-40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-opacity">
             Send
           </button>
         </form>
@@ -617,36 +652,140 @@ function ChatPanel({
   )
 }
 
-// ─── InboxOutboxPanel (Inbox | Outbox | Infra) ───────────────────────────────
+// ─── TaskCard ─────────────────────────────────────────────────────────────────
 
-const HEALTH_ITEMS = [
-  { label: 'Claude Auth', ok: true },
-  { label: 'Docker', ok: true },
-  { label: 'API Rate', ok: true },
-]
+function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left px-3 py-2.5 rounded-lg border border-line bg-surface hover:bg-hover transition-colors"
+    >
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <p className="text-[12px] font-medium text-ink truncate flex-1">{task.title}</p>
+        <span className={`text-[9px] font-mono px-1.5 py-px rounded-full shrink-0 ${statusColor(task.status)}`}>
+          {task.status.toLowerCase().replace('_', ' ')}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <p className="text-[11px] text-ink-3 line-clamp-1 flex-1">{task.content}</p>
+        {task.forHuman && (
+          <span className="text-[9px] font-mono px-1.5 py-px rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 shrink-0">
+            needs you
+          </span>
+        )}
+        <span className="text-[10px] font-mono text-ink-4 shrink-0">{fmtTime(task.createdAt)}</span>
+      </div>
+      {task.thread.length > 0 && (
+        <p className="text-[10px] text-ink-4 mt-1">{task.thread.length} message{task.thread.length !== 1 ? 's' : ''}</p>
+      )}
+    </button>
+  )
+}
+
+// ─── HumanInbox ───────────────────────────────────────────────────────────────
+
+function HumanInbox({
+  humanTasks,
+  agents,
+  onSelectTask,
+  mobileVisible,
+}: {
+  humanTasks: Task[]
+  agents: Agent[]
+  onSelectTask: (agentId: string, taskId: string) => void
+  mobileVisible: boolean
+}) {
+  return (
+    <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex flex-1 min-w-0 flex-col border-r border-line`}>
+      <div className="h-11 px-4 flex items-center border-b border-line shrink-0 bg-raised">
+        <div className="flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500">
+            <circle cx="7" cy="4.5" r="2.3" />
+            <path d="M2 12c0-2.76 2.24-5 5-5s5 2.24 5 5" />
+          </svg>
+          <span className="text-sm font-semibold text-ink">Human Inbox</span>
+          {humanTasks.length > 0 && (
+            <span className="text-[10px] font-mono px-1.5 py-px rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+              {humanTasks.length} pending
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-3">
+        {humanTasks.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <p className="text-sm font-medium text-ink-2">All clear</p>
+              <p className="text-xs text-ink-3 mt-0.5">No agents waiting for your input</p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {humanTasks.map((task) => {
+              const agent = agents.find((a) => a.id === task.agentId)
+              const lastMsg = task.thread[task.thread.length - 1]
+              return (
+                <button
+                  key={task.id}
+                  onClick={() => onSelectTask(task.agentId, task.id)}
+                  className="w-full text-left px-3 py-3 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/20 hover:bg-amber-100 dark:hover:bg-amber-950/40 transition-colors"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <StatusDot status={agent?.status ?? 'STOPPED'} />
+                    <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">{agent?.name ?? 'Unknown agent'}</span>
+                    <span className="text-[10px] font-mono text-ink-4 ml-auto">{fmtTime(task.createdAt)}</span>
+                  </div>
+                  <p className="text-[12px] font-medium text-ink mb-0.5">{task.title}</p>
+                  {lastMsg && (
+                    <p className="text-[11px] text-ink-3 line-clamp-2">{lastMsg.content}</p>
+                  )}
+                  <div className="mt-1.5">
+                    <span className="text-[9px] font-mono px-1.5 py-px rounded-full bg-amber-200 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300">
+                      tap to reply
+                    </span>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── TaskBacklogPanel ─────────────────────────────────────────────────────────
 
 const VALID_PROVIDERS = ['ollama', 'anthropic', 'openai'] as const
 
-function InboxOutboxPanel({
-  messages,
+function TaskBacklogPanel({
+  tasks,
   agentName,
+  tab,
+  onTabChange,
+  selectedTaskId,
+  onSelectTask,
+  outboxTasks,
   agentsRunning,
   agentsTotal,
-  mobileVisible,
   selectedAgent,
   onAgentUpdated,
+  mobileVisible,
 }: {
-  messages: Message[]
+  tasks: Task[]
   agentName: string | null
+  tab: 'inbox' | 'outbox' | 'infra'
+  onTabChange: (t: 'inbox' | 'outbox' | 'infra') => void
+  selectedTaskId: string | null
+  onSelectTask: (id: string) => void
+  outboxTasks: Task[]
   agentsRunning: number
   agentsTotal: number
-  mobileVisible: boolean
   selectedAgent: Agent | null
   onAgentUpdated: (agent: Agent) => void
+  mobileVisible: boolean
 }) {
-  const [tab, setTab] = useState<'inbox' | 'outbox' | 'infra'>('inbox')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-
   const [editName, setEditName] = useState('')
   const [editSystemPrompt, setEditSystemPrompt] = useState('')
   const [editProvider, setEditProvider] = useState('')
@@ -676,14 +815,7 @@ function InboxOutboxPanel({
       const res = await fetch(`/api/agents/${selectedAgent.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editName,
-          systemPrompt: editSystemPrompt,
-          provider: editProvider,
-          model: editModel,
-          maxToolIterations: editMaxToolIterations,
-          repoUrl: editRepoUrl,
-        }),
+        body: JSON.stringify({ name: editName, systemPrompt: editSystemPrompt, provider: editProvider, model: editModel, maxToolIterations: editMaxToolIterations, repoUrl: editRepoUrl }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? `Error ${res.status}`)
@@ -694,11 +826,9 @@ function InboxOutboxPanel({
     setSaving(false)
   }
 
-  const filtered = messages.filter((m) =>
-    tab === 'inbox' ? m.direction === 'INBOX' : m.direction === 'OUTBOX'
-  )
-  const unreadInbox = messages.filter((m) => m.direction === 'INBOX' && !m.processed).length
-  const selectedMsg = messages.find((m) => m.id === selectedId) ?? null
+  const inboxPending = tasks.filter((t) => t.status !== 'DONE').length
+
+  const displayTasks = tab === 'outbox' ? outboxTasks : tasks
 
   return (
     <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex w-full md:w-[320px] shrink-0 flex-col inbox-panel overflow-hidden`}>
@@ -706,17 +836,13 @@ function InboxOutboxPanel({
         {(['inbox', 'outbox', 'infra'] as const).map((t) => (
           <button
             key={t}
-            onClick={() => setTab(t)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
-              tab === t
-                ? 'bg-selected text-ink'
-                : 'text-ink-3 hover:text-ink hover:bg-hover'
-            }`}
+            onClick={() => onTabChange(t)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${tab === t ? 'bg-selected text-ink' : 'text-ink-3 hover:text-ink hover:bg-hover'}`}
           >
             {t === 'inbox' ? 'Inbox' : t === 'outbox' ? 'Outbox' : 'Infra'}
-            {t === 'inbox' && unreadInbox > 0 && (
+            {t === 'inbox' && inboxPending > 0 && (
               <span className="w-4 h-4 rounded-full bg-accent text-white text-[9px] flex items-center justify-center font-mono leading-none">
-                {unreadInbox}
+                {inboxPending}
               </span>
             )}
           </button>
@@ -725,20 +851,6 @@ function InboxOutboxPanel({
 
       {tab === 'infra' && (
         <div className="flex-1 overflow-y-auto p-3 space-y-5">
-          <section>
-            <p className="text-[9px] font-semibold text-ink-3 uppercase tracking-widest mb-2.5">Health</p>
-            <div className="space-y-2.5">
-              {HEALTH_ITEMS.map((item) => (
-                <div key={item.label} className="flex items-center justify-between">
-                  <span className="text-[11px] text-ink-2">{item.label}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green" />
-                    <span className="text-[10px] font-mono text-green-fg">ok</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
           <section>
             <p className="text-[9px] font-semibold text-ink-3 uppercase tracking-widest mb-2.5">Agents</p>
             <div className="flex items-center justify-between">
@@ -752,67 +864,32 @@ function InboxOutboxPanel({
               <div className="space-y-2.5">
                 <div>
                   <label className="block text-[10px] text-ink-3 mb-1">Name</label>
-                  <input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent"
-                  />
+                  <input value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent" />
                 </div>
                 <div>
                   <label className="block text-[10px] text-ink-3 mb-1">System Prompt</label>
-                  <textarea
-                    value={editSystemPrompt}
-                    onChange={(e) => setEditSystemPrompt(e.target.value)}
-                    rows={4}
-                    className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent resize-none font-sans"
-                  />
+                  <textarea value={editSystemPrompt} onChange={(e) => setEditSystemPrompt(e.target.value)} rows={4} className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent resize-none font-sans" />
                 </div>
                 <div>
                   <label className="block text-[10px] text-ink-3 mb-1">Provider</label>
-                  <select
-                    value={editProvider}
-                    onChange={(e) => setEditProvider(e.target.value)}
-                    className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent"
-                  >
+                  <select value={editProvider} onChange={(e) => setEditProvider(e.target.value)} className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent">
                     {VALID_PROVIDERS.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-[10px] text-ink-3 mb-1">Model</label>
-                  <input
-                    value={editModel}
-                    onChange={(e) => setEditModel(e.target.value)}
-                    className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink font-mono focus:outline-none focus:border-accent"
-                  />
+                  <input value={editModel} onChange={(e) => setEditModel(e.target.value)} className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink font-mono focus:outline-none focus:border-accent" />
                 </div>
                 <div>
                   <label className="block text-[10px] text-ink-3 mb-1">Max Tool Iterations</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={500}
-                    value={editMaxToolIterations}
-                    onChange={(e) => setEditMaxToolIterations(Number(e.target.value))}
-                    className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent"
-                  />
+                  <input type="number" min={1} max={500} value={editMaxToolIterations} onChange={(e) => setEditMaxToolIterations(Number(e.target.value))} className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent" />
                 </div>
                 <div>
                   <label className="block text-[10px] text-ink-3 mb-1">GitHub Repo</label>
-                  <input
-                    value={editRepoUrl}
-                    onChange={(e) => setEditRepoUrl(e.target.value)}
-                    placeholder="https://github.com/…"
-                    className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent"
-                  />
+                  <input value={editRepoUrl} onChange={(e) => setEditRepoUrl(e.target.value)} placeholder="https://github.com/…" className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent" />
                 </div>
-                {saveError && (
-                  <p className="text-[10px] text-red-500">{saveError}</p>
-                )}
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="w-full py-1.5 rounded bg-accent text-white text-[11px] font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
-                >
+                {saveError && <p className="text-[10px] text-red-500">{saveError}</p>}
+                <button onClick={handleSave} disabled={saving} className="w-full py-1.5 rounded bg-accent text-white text-[11px] font-medium hover:opacity-90 disabled:opacity-50 transition-opacity">
                   {saving ? 'Saving…' : 'Save'}
                 </button>
               </div>
@@ -822,76 +899,47 @@ function InboxOutboxPanel({
       )}
 
       {tab !== 'infra' && (
-        <>
-          <div className="flex-1 overflow-y-auto">
-            {!agentName ? (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-[11px] text-ink-3">Select an agent</p>
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-[11px] text-ink-3">No messages</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-line">
-                {filtered.map((msg) => (
-                  <button
-                    key={msg.id}
-                    onClick={() => setSelectedId(selectedId === msg.id ? null : msg.id)}
-                    className={`w-full px-3 py-2.5 text-left transition-colors hover:bg-hover ${
-                      selectedId === msg.id ? 'bg-accent-bg' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-mono text-ink-3">
-                        {tab === 'inbox' ? `user → ${agentName}` : `${agentName} → user`}
-                      </span>
-                      <span className="text-[10px] font-mono text-ink-4">
-                        {fmtTimeFull(msg.createdAt)}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-ink-2 line-clamp-2 leading-snug">{msg.content}</p>
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                      <span className={`text-[9px] font-medium px-1.5 py-px rounded-full font-mono ${
-                        tab === 'inbox'
-                          ? 'bg-accent-bg text-accent-fg'
-                          : 'bg-green-bg text-green-fg'
-                      }`}>
-                        {tab}
-                      </span>
-                      {tab === 'inbox' && (
-                        <span className={`text-[9px] font-mono px-1.5 py-px rounded-full ${
-                          msg.processed
-                            ? 'bg-hover text-ink-3'
-                            : 'bg-orange-bg text-orange-fg'
-                        }`}>
-                          {msg.processed ? 'processed' : 'pending'}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {selectedMsg && (
-            <div className="border-t border-line bg-raised shrink-0 max-h-[180px] overflow-y-auto">
-              <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5">
-                <span className="text-[9px] font-semibold text-ink-3 uppercase tracking-widest">Content</span>
+        <div className="flex-1 overflow-y-auto">
+          {!agentName ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-[11px] text-ink-3">Select an agent</p>
+            </div>
+          ) : displayTasks.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-[11px] text-ink-3">No {tab} tasks</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-line">
+              {displayTasks.map((task) => (
                 <button
-                  onClick={() => setSelectedId(null)}
-                  className="text-[11px] text-ink-4 hover:text-ink-2 leading-none"
+                  key={task.id}
+                  onClick={() => onSelectTask(task.id)}
+                  className={`w-full px-3 py-2.5 text-left transition-colors hover:bg-hover ${selectedTaskId === task.id ? 'bg-accent-bg' : ''}`}
                 >
-                  ✕
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <p className="text-[12px] font-medium text-ink truncate flex-1">{task.title}</p>
+                    <span className={`text-[9px] font-mono px-1.5 py-px rounded-full shrink-0 ${statusColor(task.status)}`}>
+                      {task.status.toLowerCase().replace('_', ' ')}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-ink-3 line-clamp-2 leading-snug">{task.content}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    {task.forHuman && (
+                      <span className="text-[9px] font-mono px-1.5 py-px rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">needs you</span>
+                    )}
+                    {tab === 'outbox' && task.agent && (
+                      <span className="text-[9px] text-ink-4">→ {task.agent.name}</span>
+                    )}
+                    {tab === 'inbox' && task.fromAgent && (
+                      <span className="text-[9px] text-ink-4">from {task.fromAgent.name}</span>
+                    )}
+                    <span className="text-[10px] font-mono text-ink-4 ml-auto">{fmtTime(task.createdAt)}</span>
+                  </div>
                 </button>
-              </div>
-              <pre className="px-3 pb-3 text-[11px] font-mono text-ink-2 whitespace-pre-wrap break-all leading-relaxed">
-                {selectedMsg.content}
-              </pre>
+              ))}
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   )
@@ -901,99 +949,40 @@ function InboxOutboxPanel({
 
 function StatusBar({ agents }: { agents: Agent[] }) {
   const [time, setTime] = useState(() => new Date())
-
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(t)
   }, [])
-
   const running = agents.filter((a) => a.status === 'RUNNING').length
-
-  const items = [
-    { label: 'claude', value: 'auth', ok: true },
-    { label: 'docker', value: 'running', ok: true },
-    { label: 'agents', value: `${running}/${agents.length}`, ok: running > 0 },
-    { label: 'api', value: 'ok', ok: true },
-  ]
-
   return (
     <div className="h-7 hidden md:flex items-center px-4 border-t border-line bg-raised shrink-0 gap-5">
       <div className="flex items-center gap-5 flex-1">
-        {items.map((item) => (
-          <div key={item.label} className="flex items-center gap-1.5">
-            <span className={`w-1 h-1 rounded-full shrink-0 ${item.ok ? 'bg-green' : 'bg-ink-4'}`} />
-            <span className="text-[10px] font-mono text-ink-3">
-              {item.label} <span className="text-ink-2">{item.value}</span>
-            </span>
-          </div>
-        ))}
+        <div className="flex items-center gap-1.5">
+          <span className={`w-1 h-1 rounded-full shrink-0 ${running > 0 ? 'bg-green' : 'bg-ink-4'}`} />
+          <span className="text-[10px] font-mono text-ink-3">agents <span className="text-ink-2">{running}/{agents.length}</span></span>
+        </div>
       </div>
-      <span className="text-[10px] font-mono text-ink-3">
-        {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-      </span>
+      <span className="text-[10px] font-mono text-ink-3">{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
     </div>
   )
 }
 
 // ─── MobileNav ───────────────────────────────────────────────────────────────
 
-function MobileNav({
-  active,
-  onChange,
-  unreadCount,
-}: {
-  active: 'agents' | 'chat' | 'inbox'
-  onChange: (panel: 'agents' | 'chat' | 'inbox') => void
-  unreadCount: number
-}) {
+function MobileNav({ active, onChange, humanCount }: { active: 'agents' | 'chat' | 'tasks'; onChange: (p: 'agents' | 'chat' | 'tasks') => void; humanCount: number }) {
   const tabs = [
-    {
-      id: 'agents' as const,
-      label: 'Agents',
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="9" cy="6" r="3" />
-          <path d="M3 15c0-3.314 2.686-6 6-6s6 2.686 6 6" />
-        </svg>
-      ),
-    },
-    {
-      id: 'chat' as const,
-      label: 'Chat',
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3 3h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6l-4 3V4a1 1 0 0 1 1-1z" />
-        </svg>
-      ),
-    },
-    {
-      id: 'inbox' as const,
-      label: 'Inbox',
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M2 12l2-7h10l2 7H2z" />
-          <path d="M2 12h4a3 3 0 0 0 6 0h4" />
-        </svg>
-      ),
-    },
+    { id: 'agents' as const, label: 'Agents', icon: <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="6" r="3" /><path d="M3 15c0-3.314 2.686-6 6-6s6 2.686 6 6" /></svg> },
+    { id: 'chat' as const, label: 'Chat', icon: <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6l-4 3V4a1 1 0 0 1 1-1z" /></svg> },
+    { id: 'tasks' as const, label: 'Tasks', icon: <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12l2-7h10l2 7H2z" /><path d="M2 12h4a3 3 0 0 0 6 0h4" /></svg> },
   ]
-
   return (
     <nav className="md:hidden flex items-center border-t border-line bg-raised shrink-0 h-14">
       {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => onChange(tab.id)}
-          className={`relative flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-colors ${
-            active === tab.id ? 'text-accent' : 'text-ink-3'
-          }`}
-        >
+        <button key={tab.id} onClick={() => onChange(tab.id)} className={`relative flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-colors ${active === tab.id ? 'text-accent' : 'text-ink-3'}`}>
           {tab.icon}
           <span className="text-[10px] font-medium">{tab.label}</span>
-          {tab.id === 'inbox' && unreadCount > 0 && (
-            <span className="absolute top-2 right-1/4 translate-x-2 w-4 h-4 rounded-full bg-accent text-white text-[9px] flex items-center justify-center font-mono leading-none">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </span>
+          {tab.id === 'tasks' && humanCount > 0 && (
+            <span className="absolute top-2 right-1/4 translate-x-2 w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] flex items-center justify-center font-mono leading-none">{humanCount > 9 ? '9+' : humanCount}</span>
           )}
         </button>
       ))}
@@ -1006,19 +995,22 @@ function MobileNav({
 export default function Dashboard() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [outboxTasks, setOutboxTasks] = useState<Task[]>([])
+  const [humanTasks, setHumanTasks] = useState<Task[]>([])
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [toolEvents, setToolEvents] = useState<ToolEvent[]>([])
-  const [toolEventGroups, setToolEventGroups] = useState<Record<string, ToolEvent[]>>({})
   const [filter, setFilter] = useState<'all' | 'running' | 'idle'>('all')
   const [actionLoading, setActionLoading] = useState(false)
   const [isDark, setIsDark] = useState(false)
-  const [mobilePanel, setMobilePanel] = useState<'agents' | 'chat' | 'inbox'>('agents')
+  const [mobilePanel, setMobilePanel] = useState<'agents' | 'chat' | 'tasks'>('agents')
   const [error, setError] = useState<string | null>(null)
+  const [sidebarView, setSidebarView] = useState<SidebarView>('agents')
+  const [backlogTab, setBacklogTab] = useState<'inbox' | 'outbox' | 'infra'>('inbox')
   const toolEventCounter = useRef(0)
-  const pendingToolEventsRef = useRef<ToolEvent[]>([])
-  const seenOutboxIds = useRef<Set<string>>(new Set())
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? null
+  const selectedTask = tasks.find((t) => t.id === selectedTaskId) ?? null
 
   useEffect(() => {
     setIsDark(document.documentElement.classList.contains('dark'))
@@ -1042,11 +1034,29 @@ export default function Dashboard() {
     })
   }, [])
 
-  const fetchMessages = useCallback(async () => {
-    if (!selectedAgentId) { setMessages([]); return }
-    const res = await fetch(`/api/agents/${selectedAgentId}/messages`)
-    if (res.ok) setMessages(await res.json())
+  const fetchTasks = useCallback(async () => {
+    if (!selectedAgentId) { setTasks([]); setOutboxTasks([]); return }
+    const [inboxRes, outboxRes] = await Promise.all([
+      fetch(`/api/agents/${selectedAgentId}/tasks`),
+      fetch(`/api/agents/${selectedAgentId}/tasks?direction=outbox`),
+    ])
+    if (inboxRes.ok) setTasks(await inboxRes.json())
+    if (outboxRes.ok) setOutboxTasks(await outboxRes.json())
   }, [selectedAgentId])
+
+  const fetchHumanTasks = useCallback(async () => {
+    const res = await fetch('/api/human/tasks')
+    if (res.ok) setHumanTasks(await res.json())
+  }, [])
+
+  const refreshSelectedTask = useCallback(async () => {
+    if (!selectedAgentId || !selectedTaskId) return
+    const res = await fetch(`/api/agents/${selectedAgentId}/tasks/${selectedTaskId}`)
+    if (res.ok) {
+      const updated: Task = await res.json()
+      setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t))
+    }
+  }, [selectedAgentId, selectedTaskId])
 
   useEffect(() => {
     fetchAgents()
@@ -1055,41 +1065,28 @@ export default function Dashboard() {
   }, [fetchAgents])
 
   useEffect(() => {
-    fetchMessages()
-    const t = setInterval(fetchMessages, 3000)
+    fetchTasks()
+    fetchHumanTasks()
+    const t = setInterval(() => { fetchTasks(); fetchHumanTasks() }, 3000)
     return () => clearInterval(t)
-  }, [fetchMessages])
+  }, [fetchTasks, fetchHumanTasks])
 
   useEffect(() => {
-    pendingToolEventsRef.current = toolEvents
-  }, [toolEvents])
-
-  useEffect(() => {
-    const newOutbox = messages
-      .filter((m) => m.direction === 'OUTBOX' && !seenOutboxIds.current.has(m.id))
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-
-    if (newOutbox.length === 0) return
-
-    newOutbox.forEach((m) => seenOutboxIds.current.add(m.id))
-    const pending = pendingToolEventsRef.current
-    if (pending.length > 0) {
-      const latestNew = newOutbox[newOutbox.length - 1]
-      setToolEventGroups((prev) => ({ ...prev, [latestNew.id]: pending }))
-      setToolEvents([])
+    if (selectedTaskId) {
+      const t = setInterval(refreshSelectedTask, 2000)
+      return () => clearInterval(t)
     }
-  }, [messages])
+  }, [selectedTaskId, refreshSelectedTask])
 
   useEffect(() => {
     setToolEvents([])
-    setToolEventGroups({})
-    seenOutboxIds.current = new Set()
+    setSelectedTaskId(null)
   }, [selectedAgentId])
 
   useEffect(() => {
     if (!selectedAgentId) return
-    const selectedAgent = agents.find((a) => a.id === selectedAgentId)
-    if (selectedAgent?.status !== 'RUNNING') return
+    const agent = agents.find((a) => a.id === selectedAgentId)
+    if (agent?.status !== 'RUNNING') return
 
     const es = new EventSource(`/api/agents/${selectedAgentId}/logs`)
     es.onmessage = (e) => {
@@ -1097,7 +1094,6 @@ export default function Dashboard() {
         const line: string = JSON.parse(e.data)
         const id = `te-${++toolEventCounter.current}`
         const ts = Date.now()
-
         if (line.startsWith('[TOOL]')) {
           const payload = JSON.parse(line.slice(6)) as { type: 'call' | 'result'; name: string; input?: Record<string, string>; result?: string; ok?: boolean }
           setToolEvents((prev) => [...prev.slice(-199), { id, ts, ...payload }])
@@ -1120,11 +1116,8 @@ export default function Dashboard() {
     try {
       const res = await fetch(`/api/agents/${selectedAgent.id}/${action}`, { method: 'POST' })
       const data = await res.json()
-      if (res.ok) {
-        setAgents((prev) => prev.map((a) => (a.id === data.id ? data : a)))
-      } else {
-        setError(data?.error ?? `Failed to ${action} agent`)
-      }
+      if (res.ok) setAgents((prev) => prev.map((a) => (a.id === data.id ? data : a)))
+      else setError(data?.error ?? `Failed to ${action} agent`)
     } catch {
       setError(`Network error — could not ${action} agent`)
     }
@@ -1141,22 +1134,44 @@ export default function Dashboard() {
     }
   }
 
-  async function sendMessage(content: string) {
+  async function sendTask(content: string) {
     if (!selectedAgentId) return
     await fetch(`/api/agents/${selectedAgentId}/inbox`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),
     })
-    fetchMessages()
+    fetchTasks()
   }
 
-  function handleSelectAgent(id: string) {
-    setSelectedAgentId(id)
+  async function sendReply(taskId: string, content: string) {
+    if (!selectedAgentId) return
+    await fetch(`/api/agents/${selectedAgentId}/tasks/${taskId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    })
+    refreshSelectedTask()
+  }
+
+  function handleSelectTask(taskId: string) {
+    setSelectedTaskId(taskId)
     setMobilePanel('chat')
   }
 
-  const unreadCount = messages.filter((m) => m.direction === 'INBOX' && !m.processed).length
+  function handleSelectHumanTask(agentId: string, taskId: string) {
+    setSidebarView('agents')
+    setSelectedAgentId(agentId)
+    setSelectedTaskId(taskId)
+    setMobilePanel('chat')
+  }
+
+  function handleBackToAgent() {
+    setSelectedTaskId(null)
+  }
+
+  const showTaskThread = selectedTask && selectedAgent
+  const showHumanInbox = sidebarView === 'human'
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -1168,41 +1183,65 @@ export default function Dashboard() {
         </div>
       )}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        <AgentsSidebar
+        <Sidebar
           agents={agents}
-          selectedId={selectedAgentId}
-          onSelect={handleSelectAgent}
+          selectedAgentId={selectedAgentId}
+          onSelectAgent={(id) => { setSelectedAgentId(id); setSidebarView('agents'); setMobilePanel('chat') }}
+          view={sidebarView}
+          onViewChange={setSidebarView}
           filter={filter}
           onFilterChange={setFilter}
+          humanTaskCount={humanTasks.length}
           mobileVisible={mobilePanel === 'agents'}
         />
-        <ChatPanel
-          agent={selectedAgent}
-          messages={messages}
-          toolEvents={toolEvents}
-          toolEventGroups={toolEventGroups}
-          onSend={sendMessage}
-          onToggle={toggleAgent}
-          onDelete={deleteAgent}
-          actionLoading={actionLoading}
-          mobileVisible={mobilePanel === 'chat'}
-        />
-        <InboxOutboxPanel
-          messages={messages}
+
+        {showHumanInbox ? (
+          <HumanInbox
+            humanTasks={humanTasks}
+            agents={agents}
+            onSelectTask={handleSelectHumanTask}
+            mobileVisible={mobilePanel === 'chat'}
+          />
+        ) : showTaskThread ? (
+          <TaskThread
+            task={selectedTask}
+            agent={selectedAgent}
+            toolEvents={toolEvents}
+            onSendReply={sendReply}
+            onBack={handleBackToAgent}
+            mobileVisible={mobilePanel === 'chat'}
+          />
+        ) : (
+          <AgentChat
+            agent={selectedAgent}
+            tasks={tasks}
+            onSendTask={sendTask}
+            onSelectTask={handleSelectTask}
+            onToggle={toggleAgent}
+            onDelete={deleteAgent}
+            actionLoading={actionLoading}
+            toolEvents={toolEvents}
+            mobileVisible={mobilePanel === 'chat'}
+          />
+        )}
+
+        <TaskBacklogPanel
+          tasks={tasks}
           agentName={selectedAgent?.name ?? null}
+          tab={backlogTab}
+          onTabChange={setBacklogTab}
+          selectedTaskId={selectedTaskId}
+          onSelectTask={handleSelectTask}
+          outboxTasks={outboxTasks}
           agentsRunning={agents.filter((a) => a.status === 'RUNNING').length}
           agentsTotal={agents.length}
-          mobileVisible={mobilePanel === 'inbox'}
           selectedAgent={selectedAgent}
           onAgentUpdated={(updated) => setAgents((prev) => prev.map((a) => a.id === updated.id ? updated : a))}
+          mobileVisible={mobilePanel === 'tasks'}
         />
       </div>
       <StatusBar agents={agents} />
-      <MobileNav
-        active={mobilePanel}
-        onChange={setMobilePanel}
-        unreadCount={unreadCount}
-      />
+      <MobileNav active={mobilePanel} onChange={setMobilePanel} humanCount={humanTasks.length} />
     </div>
   )
 }

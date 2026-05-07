@@ -1,24 +1,31 @@
 import { prisma } from '@/lib/db'
 import { NextResponse } from 'next/server'
 
-// Worker polls this to get the next unprocessed message
+// Runner polls this to get the next pending task
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const message = await prisma.message.findFirst({
-    where: { agentId: id, direction: 'INBOX', processed: false },
+  const task = await prisma.task.findFirst({
+    where: { agentId: id, status: 'PENDING', forHuman: false },
     orderBy: { createdAt: 'asc' },
+    include: { thread: { orderBy: { createdAt: 'asc' } } },
   })
-  return NextResponse.json(message ?? null)
+  return NextResponse.json(task ?? null)
 }
 
-// User sends a message to the agent
+// Human (or another agent) sends a new task to this agent
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { content } = await req.json()
+  const { content, title, fromAgentId } = await req.json()
   if (!content) return NextResponse.json({ error: 'content required' }, { status: 400 })
 
-  const message = await prisma.message.create({
-    data: { agentId: id, direction: 'INBOX', content },
+  const task = await prisma.task.create({
+    data: {
+      agentId: id,
+      fromAgentId: fromAgentId ?? null,
+      title: title ?? content.slice(0, 80),
+      content,
+    },
+    include: { thread: true },
   })
-  return NextResponse.json(message, { status: 201 })
+  return NextResponse.json(task, { status: 201 })
 }
