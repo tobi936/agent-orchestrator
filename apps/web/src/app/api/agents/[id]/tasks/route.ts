@@ -11,7 +11,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const tasks = await prisma.task.findMany({
       where: { fromAgentId: id },
       orderBy: { createdAt: 'desc' },
-      include: { agent: { select: { id: true, name: true } } },
+      include: {
+        agent: { select: { id: true, name: true } },
+        thread: { orderBy: { createdAt: 'asc' } },
+      },
     })
     return NextResponse.json(tasks)
   }
@@ -19,7 +22,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const tasks = await prisma.task.findMany({
     where: { agentId: id },
     orderBy: { createdAt: 'desc' },
-    include: { fromAgent: { select: { id: true, name: true } } },
+    include: {
+      fromAgent: { select: { id: true, name: true } },
+      thread: { orderBy: { createdAt: 'asc' } },
+    },
   })
   return NextResponse.json(tasks)
 }

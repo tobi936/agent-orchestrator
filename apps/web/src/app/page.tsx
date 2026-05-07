@@ -415,7 +415,7 @@ function TaskThread({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [task.thread.length, toolEvents.length])
+  }, [task.thread?.length, toolEvents.length])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -465,7 +465,7 @@ function TaskThread({
         </div>
 
         {/* Thread messages */}
-        {task.thread.map((msg) =>
+        {(task.thread ?? []).map((msg) =>
           msg.role === 'user' ? (
             <div key={msg.id} className="flex items-end gap-2 justify-end">
               <div className="max-w-[70%] rounded-xl rounded-br-sm bg-accent px-3.5 py-2.5 shadow-sm dark:shadow-none">
@@ -675,7 +675,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
         )}
         <span className="text-[10px] font-mono text-ink-4 shrink-0">{fmtTime(task.createdAt)}</span>
       </div>
-      {task.thread.length > 0 && (
+      {(task.thread?.length ?? 0) > 0 && (
         <p className="text-[10px] text-ink-4 mt-1">{task.thread.length} message{task.thread.length !== 1 ? 's' : ''}</p>
       )}
     </button>
@@ -724,7 +724,7 @@ function HumanInbox({
           <div className="space-y-2">
             {humanTasks.map((task) => {
               const agent = agents.find((a) => a.id === task.agentId)
-              const lastMsg = task.thread[task.thread.length - 1]
+              const lastMsg = task.thread?.at(-1)
               return (
                 <button
                   key={task.id}
