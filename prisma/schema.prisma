@@ -20,6 +20,7 @@ model Agent {
   status            AgentStatus @default(STOPPED)
   containerId       String?
   maxToolIterations Int         @default(50)
+  allowedTools      String[]
   createdAt         DateTime    @default(now())
 
   tasks     Task[] @relation("AgentTasks")

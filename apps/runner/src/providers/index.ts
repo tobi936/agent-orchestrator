@@ -17,6 +17,7 @@ export interface AIProvider {
     history?: ChatHistoryMessage[],
     maxToolIterations?: number,
     customToolHandler?: CustomToolHandler,
+    allowedTools?: string[],
   ): Promise<string>
 }
 
@@ -62,6 +63,11 @@ async function openAICompatChat(
   return data.choices[0]
 }
 
+function filterTools<T extends { function: { name: string } }>(tools: T[], allowedTools?: string[]): T[] {
+  if (!allowedTools || allowedTools.length === 0) return tools
+  return tools.filter((t) => allowedTools.includes(t.function.name))
+}
+
 async function runToolLoop(
   baseURL: string,
   apiKey: string,
@@ -74,6 +80,7 @@ async function runToolLoop(
   history: ChatHistoryMessage[] = [],
   maxToolIterations = 50,
   customToolHandler?: CustomToolHandler,
+  allowedTools?: string[],
 ): Promise<string> {
   const messages: Message[] = [
     { role: 'system', content: systemPrompt },
@@ -81,10 +88,10 @@ async function runToolLoop(
     { role: 'user',   content: userMessage },
   ]
 
-  const toolList = [
+  const toolList = filterTools([
     ...(sandbox ? sandboxTools : []),
     ...orchestrationTools,
-  ]
+  ], allowedTools)
 
   for (let i = 0; i < maxToolIterations; i++) {
     const { finish_reason, message } = await openAICompatChat(
@@ -135,11 +142,12 @@ async function runAnthropicToolLoop(
   history: ChatHistoryMessage[] = [],
   maxToolIterations = 50,
   customToolHandler?: CustomToolHandler,
+  allowedTools?: string[],
 ): Promise<string> {
-  const toolList = [
+  const toolList = filterTools([
     ...(sandbox ? sandboxTools : []),
     ...orchestrationTools,
-  ].map((t) => ({
+  ], allowedTools).map((t) => ({
     name: t.function.name,
     description: t.function.description,
     input_schema: t.function.parameters,
@@ -206,21 +214,21 @@ async function runAnthropicToolLoop(
 
 class OllamaProvider implements AIProvider {
   constructor(private model: string) {}
-  chat(systemPrompt: string, userMessage: string, sandbox: Sandbox | null, log?: (line: string) => void, history?: ChatHistoryMessage[], maxToolIterations?: number, customToolHandler?: CustomToolHandler) {
-    return runToolLoop('https://ollama.com/v1', process.env.OLLAMA_API_KEY ?? '', this.model, systemPrompt, userMessage, sandbox, {}, log, history, maxToolIterations, customToolHandler)
+  chat(systemPrompt: string, userMessage: string, sandbox: Sandbox | null, log?: (line: string) => void, history?: ChatHistoryMessage[], maxToolIterations?: number, customToolHandler?: CustomToolHandler, allowedTools?: string[]) {
+    return runToolLoop('https://ollama.com/v1', process.env.OLLAMA_API_KEY ?? '', this.model, systemPrompt, userMessage, sandbox, {}, log, history, maxToolIterations, customToolHandler, allowedTools)
   }
 }
 
 class OpenAIProvider implements AIProvider {
   constructor(private model: string) {}
-  chat(systemPrompt: string, userMessage: string, sandbox: Sandbox | null, log?: (line: string) => void, history?: ChatHistoryMessage[], maxToolIterations?: number, customToolHandler?: CustomToolHandler) {
-    return runToolLoop('https://api.openai.com/v1', process.env.OPENAI_API_KEY ?? '', this.model, systemPrompt, userMessage, sandbox, {}, log, history, maxToolIterations, customToolHandler)
+  chat(systemPrompt: string, userMessage: string, sandbox: Sandbox | null, log?: (line: string) => void, history?: ChatHistoryMessage[], maxToolIterations?: number, customToolHandler?: CustomToolHandler, allowedTools?: string[]) {
+    return runToolLoop('https://api.openai.com/v1', process.env.OPENAI_API_KEY ?? '', this.model, systemPrompt, userMessage, sandbox, {}, log, history, maxToolIterations, customToolHandler, allowedTools)
   }
 }
 
 class AnthropicProvider implements AIProvider {
   constructor(private model: string) {}
-  chat(systemPrompt: string, userMessage: string, sandbox: Sandbox | null, log?: (line: string) => void, history?: ChatHistoryMessage[], maxToolIterations?: number, customToolHandler?: CustomToolHandler) {
-    return runAnthropicToolLoop(this.model, systemPrompt, userMessage, sandbox, log, history, maxToolIterations, customToolHandler)
+  chat(systemPrompt: string, userMessage: string, sandbox: Sandbox | null, log?: (line: string) => void, history?: ChatHistoryMessage[], maxToolIterations?: number, customToolHandler?: CustomToolHandler, allowedTools?: string[]) {
+    return runAnthropicToolLoop(this.model, systemPrompt, userMessage, sandbox, log, history, maxToolIterations, customToolHandler, allowedTools)
   }
 }

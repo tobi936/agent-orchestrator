@@ -33,6 +33,9 @@
    if (typeof body.maxToolIterations === 'number' && body.maxToolIterations > 0) {
      data.maxToolIterations = body.maxToolIterations
    }
+   if (Array.isArray(body.allowedTools)) {
+     data.allowedTools = body.allowedTools.filter((t: unknown) => typeof t === 'string')
+   }
 
    const agent = await prisma.agent.update({ where: { id }, data })
    return NextResponse.json(agent)
