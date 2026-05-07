@@ -3,6 +3,7 @@ import { createProvider, ChatHistoryMessage } from './providers'
 import { appendLog } from './logs'
 import { sandboxes } from './sandboxes'
 import { executeSandboxTool } from './tools'
+import { startAgent } from './start'
 
 const INTERVAL_MS = 3000
 
@@ -119,8 +120,10 @@ async function tick() {
                 repoUrl: toolInput.repo_url ?? null,
               },
             })
-            appendLog(agent.id, `[agent] Created agent "${created.name}" (${created.id})`)
-            return `Agent created: ${created.name} (id: ${created.id})`
+            appendLog(agent.id, `[agent] Created agent "${created.name}" (${created.id}), starting sandbox…`)
+            const startResult = await startAgent(created.id)
+            const status = startResult.ok ? 'running' : `start failed: ${startResult.error}`
+            return `Agent created and started: ${created.name} (id: ${created.id}, status: ${status})`
           }
           if (toolName === 'update_agent') {
             const data: Record<string, string> = {}
