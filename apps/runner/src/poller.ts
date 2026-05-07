@@ -27,7 +27,7 @@ async function tick() {
     where: { direction: 'INBOX', processed: false, agent: { status: 'RUNNING' } },
     include: {
       agent: {
-        select: { id: true, systemPrompt: true, name: true, provider: true, model: true, repoUrl: true },
+        select: { id: true, systemPrompt: true, name: true, provider: true, model: true, repoUrl: true, maxToolIterations: true },
       },
     },
     orderBy: { createdAt: 'asc' },
@@ -62,7 +62,7 @@ async function tick() {
         content: m.content,
       }))
 
-      reply = await provider.chat(systemPrompt, msg.content, sandbox, (line) => appendLog(agent.id, line), history)
+      reply = await provider.chat(systemPrompt, msg.content, sandbox, (line) => appendLog(agent.id, line), history, agent.maxToolIterations)
       appendLog(agent.id, `[${new Date().toISOString()}] Reply generated (${reply.length} chars)`)
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err)
