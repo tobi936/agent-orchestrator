@@ -169,8 +169,21 @@ async function tick() {
             appendLog(agent.id, `[agent] Updated agent ${toolInput.agent_id}: ${JSON.stringify(data)}`)
             return `Agent ${toolInput.agent_id} updated: ${Object.keys(data).join(', ')}`
           }
-          if (toolName.startsWith('gh_')) return executeGhTool(toolName, toolInput as Record<string, string | number>)
-          if (sandbox) return executeSandboxTool(toolName, toolInput, sandbox, fileTracker)
+          if (toolName.startsWith('gh_')) {
+            const inputSummary = Object.values(toolInput).join(', ')
+            appendLog(agent.id, `[tool] ${toolName}: ${inputSummary}`)
+            const result = await executeGhTool(toolName, toolInput as Record<string, string | number>)
+            appendLog(agent.id, `[tool] ${toolName} — ${result.startsWith('GitHub API error') || result.startsWith('Error') ? 'error' : 'ok'}`)
+            return result
+          }
+          if (sandbox) {
+            const inputSummary = Object.entries(toolInput).map(([k, v]) => `${k}=${String(v).slice(0, 60)}`).join(', ')
+            appendLog(agent.id, `[tool] ${toolName}: ${inputSummary}`)
+            const result = await executeSandboxTool(toolName, toolInput, sandbox, fileTracker)
+            const status = result.startsWith('Error') ? 'error' : 'ok'
+            appendLog(agent.id, `[tool] ${toolName} — ${status}`)
+            return result
+          }
           return `Tool ${toolName} not available without sandbox`
         },
         agent.allowedTools.length > 0 ? agent.allowedTools : undefined,
