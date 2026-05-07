@@ -7,7 +7,7 @@ export interface ChatHistoryMessage {
 }
 
 export interface AIProvider {
-  chat(systemPrompt: string, userMessage: string, sandbox?: Sandbox, log?: (line: string) => void, history?: ChatHistoryMessage[]): Promise<string>
+  chat(systemPrompt: string, userMessage: string, sandbox?: Sandbox, log?: (line: string) => void, history?: ChatHistoryMessage[], maxToolIterations?: number): Promise<string>
 }
 
 export interface ProviderConfig {
@@ -62,6 +62,7 @@ async function runToolLoop(
   extraHeaders: Record<string, string> = {},
   log?: (line: string) => void,
   history: ChatHistoryMessage[] = [],
+  maxToolIterations = 50,
 ): Promise<string> {
   const messages: Message[] = [
     { role: 'system', content: systemPrompt },
@@ -70,7 +71,7 @@ async function runToolLoop(
   ]
   const hasSandbox = !!sandbox
 
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < maxToolIterations; i++) {
     const { finish_reason, message } = await openAICompatChat(
       baseURL, apiKey, model, messages, extraHeaders, hasSandbox,
     )
@@ -103,15 +104,15 @@ async function runToolLoop(
 
 class OllamaProvider implements AIProvider {
   constructor(private model: string) {}
-  chat(systemPrompt: string, userMessage: string, sandbox?: Sandbox, log?: (line: string) => void, history?: ChatHistoryMessage[]) {
-    return runToolLoop('https://ollama.com/v1', process.env.OLLAMA_API_KEY ?? '', this.model, systemPrompt, userMessage, sandbox, {}, log, history)
+  chat(systemPrompt: string, userMessage: string, sandbox?: Sandbox, log?: (line: string) => void, history?: ChatHistoryMessage[], maxToolIterations?: number) {
+    return runToolLoop('https://ollama.com/v1', process.env.OLLAMA_API_KEY ?? '', this.model, systemPrompt, userMessage, sandbox, {}, log, history, maxToolIterations)
   }
 }
 
 class OpenAIProvider implements AIProvider {
   constructor(private model: string) {}
-  chat(systemPrompt: string, userMessage: string, sandbox?: Sandbox, log?: (line: string) => void, history?: ChatHistoryMessage[]) {
-    return runToolLoop('https://api.openai.com/v1', process.env.OPENAI_API_KEY ?? '', this.model, systemPrompt, userMessage, sandbox, {}, log, history)
+  chat(systemPrompt: string, userMessage: string, sandbox?: Sandbox, log?: (line: string) => void, history?: ChatHistoryMessage[], maxToolIterations?: number) {
+    return runToolLoop('https://api.openai.com/v1', process.env.OPENAI_API_KEY ?? '', this.model, systemPrompt, userMessage, sandbox, {}, log, history, maxToolIterations)
   }
 }
 

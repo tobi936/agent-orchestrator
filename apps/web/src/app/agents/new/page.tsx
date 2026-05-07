@@ -16,6 +16,7 @@
    const [provider, setProvider] = useState<typeof PROVIDERS[number]['value']>('ollama')
    const [model, setModel] = useState<string>(PROVIDERS[0].defaultModel)
    const [repoUrl, setRepoUrl] = useState('')
+  const [maxToolIterations, setMaxToolIterations] = useState(50)
    const [loading, setLoading] = useState(false)
    const [error, setError] = useState('')
  
@@ -41,6 +42,7 @@
            provider,
            model,
            repoUrl: repoUrl.trim() || undefined,
+           maxToolIterations,
          }),
        })
        if (!res.ok) {
@@ -171,6 +173,22 @@ focus:border-accent transition-colors font-mono"
 focus:border-accent transition-colors"
                  />
                  <p className="text-[11px] text-ink-3 mt-1">Cloned to /workspace on start</p>
+               </div>
+
+               <div>
+                 <label className="block text-[11px] font-medium text-ink-3 mb-1.5 uppercase tracking-wider">
+                   Max Tool Iterations
+                 </label>
+                 <input
+                   type="number"
+                   min={1}
+                   max={500}
+                   value={maxToolIterations}
+                   onChange={(e) => setMaxToolIterations(Number(e.target.value))}
+                   required
+                   className="w-full bg-raised border border-line rounded-lg px-3.5 py-2.5 text-sm text-ink focus:outline-none focus:border-accent transition-colors"
+                 />
+                 <p className="text-[11px] text-ink-3 mt-1">Max tool calls per message before the agent stops</p>
                </div>
              </div>
  

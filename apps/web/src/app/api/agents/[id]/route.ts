@@ -30,7 +30,10 @@
      if (!body.model.trim()) return NextResponse.json({ error: 'model cannot be empty' }, { status: 400 })
      data.model = body.model.trim()
    }
- 
+   if (typeof body.maxToolIterations === 'number' && body.maxToolIterations > 0) {
+     data.maxToolIterations = body.maxToolIterations
+   }
+
    const agent = await prisma.agent.update({ where: { id }, data })
    return NextResponse.json(agent)
  }
