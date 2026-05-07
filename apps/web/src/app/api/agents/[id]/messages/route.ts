@@ -1,12 +1,16 @@
 import { prisma } from '@/lib/db'
 import { NextResponse } from 'next/server'
 
-// Returns all messages for an agent, sorted oldest first
+// Returns all tasks for an agent with their thread, sorted oldest first
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const messages = await prisma.message.findMany({
+  const tasks = await prisma.task.findMany({
     where: { agentId: id },
     orderBy: { createdAt: 'asc' },
+    include: {
+      thread: { orderBy: { createdAt: 'asc' } },
+      fromAgent: { select: { id: true, name: true } },
+    },
   })
-  return NextResponse.json(messages)
+  return NextResponse.json(tasks)
 }

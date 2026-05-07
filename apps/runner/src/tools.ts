@@ -1,6 +1,6 @@
 import { Sandbox } from 'e2b'
 
-export const tools = [
+export const sandboxTools = [
   {
     type: 'function' as const,
     function: {
@@ -34,7 +34,7 @@ export const tools = [
     type: 'function' as const,
     function: {
       name: 'edit_file',
-      description: 'Make a targeted edit to a file by replacing an exact string. Prefer this over write_file when changing only part of a file.',
+      description: 'Make a targeted edit to a file by replacing an exact string.',
       parameters: {
         type: 'object',
         properties: {
@@ -50,7 +50,7 @@ export const tools = [
     type: 'function' as const,
     function: {
       name: 'run_command',
-      description: 'Run any bash shell command in the sandbox — including git, gh (GitHub CLI), grep, find, ls, cat, curl, npm, python, etc. Returns stdout and stderr.',
+      description: 'Run any bash shell command in the sandbox.',
       parameters: {
         type: 'object',
         properties: {
@@ -62,7 +62,40 @@ export const tools = [
   },
 ]
 
-export async function executeTool(
+export const orchestrationTools = [
+  {
+    type: 'function' as const,
+    function: {
+      name: 'route_task',
+      description: 'Mark the current task as done and send a new task to another agent.',
+      parameters: {
+        type: 'object',
+        properties: {
+          target_agent_id: { type: 'string', description: 'ID of the agent to send the task to' },
+          title: { type: 'string', description: 'Short title for the new task' },
+          content: { type: 'string', description: 'Full task description for the target agent' },
+        },
+        required: ['target_agent_id', 'title', 'content'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'ask_human',
+      description: 'Pause the task and ask the human user a question. The task will resume when the human replies.',
+      parameters: {
+        type: 'object',
+        properties: {
+          question: { type: 'string', description: 'The question or information needed from the human' },
+        },
+        required: ['question'],
+      },
+    },
+  },
+]
+
+export async function executeSandboxTool(
   name: string,
   input: Record<string, string>,
   sandbox: Sandbox,
@@ -102,3 +135,7 @@ export async function executeTool(
     return `Error: ${err instanceof Error ? err.message : String(err)}`
   }
 }
+
+// Re-export for backward compat
+export const tools = sandboxTools
+export const executeTool = executeSandboxTool
