@@ -1,261 +1,219 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AgentStatus = 'STOPPED' | 'RUNNING'
-
-interface Agent {
+interface AgentStat {
   id: string
   name: string
-  systemPrompt: string
+  status: 'STOPPED' | 'RUNNING'
   provider: string
   model: string
-  repoUrl: string | null
-  status: AgentStatus
-  containerId: string | null
-}
-
-interface AgentMetrics {
   pending: number
   inProgress: number
   done: number
-  recentLogs: string[]
-  sandboxMetrics: { cpu?: number; mem?: number } | null
 }
 
-interface ConfirmModal {
+interface Flow {
+  from: string
+  to: string
+  count: number
+}
+
+interface InboxItem {
+  id: string
+  title: string
   agentId: string
   agentName: string
-  action: 'start' | 'stop' | 'restart'
+  fromAgentId: string | null
+  fromAgentName: string | null
+  createdAt: string
+}
+
+interface OutboxItem {
+  id: string
+  title: string
+  agentId: string
+  agentName: string
+  lastReply: string | null
+  createdAt: string
+}
+
+interface Totals {
+  agents: number
+  running: number
+  pending: number
+  inProgress: number
+  done: number
+}
+
+interface DashboardData {
+  totals: Totals
+  agentStats: AgentStat[]
+  flows: Flow[]
+  inbox: InboxItem[]
+  outbox: OutboxItem[]
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function statusLabel(s: AgentStatus) {
-  return s === 'RUNNING' ? 'running' : 'idle'
+function relativeTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const s = Math.floor(diff / 1000)
+  if (s < 60) return `${s}s ago`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
 }
 
-function statusClasses(s: AgentStatus) {
-  return s === 'RUNNING'
-    ? 'bg-green-bg text-green-fg'
-    : 'bg-hover text-ink-3'
-}
+// ─── StatTile ─────────────────────────────────────────────────────────────────
 
-function actionLabel(a: 'start' | 'stop' | 'restart') {
-  if (a === 'start') return 'Start'
-  if (a === 'stop') return 'Stop'
-  return 'Restart'
-}
-
-// ─── StatusDot ────────────────────────────────────────────────────────────────
-
-function StatusDot({ status }: { status: AgentStatus }) {
+function StatTile({ label, value, accent }: { label: string; value: number; accent?: string }) {
   return (
-    <span
-      className={`inline-block w-2 h-2 rounded-full shrink-0 ${
-        status === 'RUNNING' ? 'bg-green animate-pulse' : 'bg-ink-4'
-      }`}
-    />
-  )
-}
-
-// ─── SandboxBar ───────────────────────────────────────────────────────────────
-
-function SandboxBar({ label, value, max, unit }: { label: string; value: number; max: number; unit: string }) {
-  const pct = Math.min(100, Math.round((value / max) * 100))
-  const color = pct > 80 ? 'bg-red-400' : pct > 60 ? 'bg-amber-400' : 'bg-green'
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-[10px] font-mono text-ink-3 w-8 shrink-0">{label}</span>
-      <div className="flex-1 h-1.5 bg-line rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${pct}%` }} />
-      </div>
-      <span className="text-[10px] font-mono text-ink-2 w-14 text-right shrink-0">
-        {value.toFixed(1)}{unit}
-      </span>
+    <div className="flex flex-col gap-0.5 px-5 py-3 rounded-xl border border-line bg-raised">
+      <span className={`text-2xl font-bold font-mono tabular-nums ${accent ?? 'text-ink'}`}>{value}</span>
+      <span className="text-[10px] font-medium text-ink-3 uppercase tracking-wide">{label}</span>
     </div>
   )
 }
 
-// ─── AgentCard ────────────────────────────────────────────────────────────────
+// ─── AgentRow ─────────────────────────────────────────────────────────────────
 
-function AgentCard({
-  agent,
-  metrics,
-  actionLoading,
-  onAction,
-  onNavigate,
-}: {
-  agent: Agent
-  metrics: AgentMetrics | null
-  actionLoading: boolean
-  onAction: (action: 'start' | 'stop' | 'restart') => void
+function AgentRow({ agent, flows, agentStats, onNavigate }: {
+  agent: AgentStat
+  flows: Flow[]
+  agentStats: AgentStat[]
   onNavigate: () => void
 }) {
-  const totalTasks = (metrics?.pending ?? 0) + (metrics?.inProgress ?? 0) + (metrics?.done ?? 0)
+  const outgoingFlows = flows.filter((f) => f.from === agent.id).slice(0, 3)
+  const total = agent.pending + agent.inProgress + agent.done
 
   return (
-    <div className="flex flex-col gap-3 p-4 rounded-xl border border-line bg-raised shadow-sm">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <StatusDot status={agent.status} />
-          <button
-            onClick={onNavigate}
-            className="text-[14px] font-semibold text-ink truncate hover:text-accent transition-colors"
-          >
-            {agent.name}
-          </button>
-        </div>
-        <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full shrink-0 ${statusClasses(agent.status)}`}>
-          {statusLabel(agent.status)}
-        </span>
-      </div>
-
-      {/* System prompt preview */}
-      <p className="text-[11px] text-ink-3 line-clamp-2 leading-snug">{agent.systemPrompt}</p>
-
-      {/* Meta */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-hover text-ink-3">{agent.provider}</span>
-        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-hover text-ink-3 truncate max-w-[140px]">{agent.model}</span>
-        {agent.repoUrl && (
-          <span className="text-[10px] font-mono text-ink-4 truncate max-w-[120px]">
-            {agent.repoUrl.replace('https://github.com/', 'gh/')}
-          </span>
-        )}
-      </div>
-
-      {/* Task counts */}
-      {metrics ? (
-        <div className="grid grid-cols-3 gap-1">
-          {[
-            { label: 'Pending', value: metrics.pending, color: 'bg-orange-bg text-orange-fg' },
-            { label: 'Active', value: metrics.inProgress, color: 'bg-accent-bg text-accent-fg' },
-            { label: 'Done', value: metrics.done, color: 'bg-green-bg text-green-fg' },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="flex flex-col items-center py-1.5 rounded-lg bg-surface border border-line gap-0.5">
-              <span className={`text-[15px] font-bold font-mono ${color.split(' ')[1]}`}>{value}</span>
-              <span className="text-[9px] text-ink-3 font-medium uppercase tracking-wide">{label}</span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-3 gap-1">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-10 rounded-lg bg-surface border border-line animate-pulse" />
-          ))}
-        </div>
-      )}
-
-      {/* Sandbox metrics */}
-      {metrics?.sandboxMetrics && (
-        <div className="space-y-1.5 pt-1 border-t border-line">
-          {metrics.sandboxMetrics.cpu != null && (
-            <SandboxBar label="CPU" value={metrics.sandboxMetrics.cpu} max={100} unit="%" />
-          )}
-          {metrics.sandboxMetrics.mem != null && (
-            <SandboxBar label="MEM" value={metrics.sandboxMetrics.mem} max={256} unit=" MB" />
-          )}
-        </div>
-      )}
-
-      {/* Recent logs */}
-      {metrics && metrics.recentLogs.length > 0 && (
-        <div className="rounded-md bg-surface border border-line p-2 space-y-0.5 max-h-20 overflow-hidden">
-          {metrics.recentLogs.slice(-3).map((line, i) => (
-            <p key={i} className="text-[10px] font-mono text-ink-4 truncate leading-tight">{line}</p>
-          ))}
-        </div>
-      )}
-
-      {/* Controls */}
-      <div className="flex items-center gap-1.5 pt-1 border-t border-line">
-        {agent.status === 'STOPPED' ? (
-          <button
-            onClick={() => onAction('start')}
-            disabled={actionLoading}
-            className="flex-1 py-1.5 rounded-md bg-accent text-white text-[11px] font-medium hover:opacity-90 disabled:opacity-40 transition-opacity"
-          >
-            Start
-          </button>
-        ) : (
-          <>
-            <button
-              onClick={() => onAction('restart')}
-              disabled={actionLoading}
-              className="flex-1 py-1.5 rounded-md bg-raised border border-line text-ink-2 text-[11px] font-medium hover:bg-hover disabled:opacity-40 transition-colors"
-            >
-              Restart
-            </button>
-            <button
-              onClick={() => onAction('stop')}
-              disabled={actionLoading}
-              className="flex-1 py-1.5 rounded-md bg-raised border border-line text-ink-2 text-[11px] font-medium hover:bg-hover disabled:opacity-40 transition-colors"
-            >
-              Stop
-            </button>
-          </>
-        )}
+    <div className="flex items-center gap-4 px-4 py-3 rounded-xl border border-line bg-raised hover:bg-hover transition-colors group">
+      {/* Status dot + name */}
+      <div className="flex items-center gap-2 w-40 shrink-0">
+        <span className={`w-2 h-2 rounded-full shrink-0 ${agent.status === 'RUNNING' ? 'bg-green animate-pulse' : 'bg-ink-4'}`} />
         <button
           onClick={onNavigate}
-          className="px-3 py-1.5 rounded-md bg-raised border border-line text-ink-3 text-[11px] font-medium hover:bg-hover hover:text-ink transition-colors"
+          className="text-[13px] font-semibold text-ink truncate hover:text-accent transition-colors"
         >
-          Open
+          {agent.name}
         </button>
       </div>
 
-      {totalTasks > 0 && (
-        <p className="text-[10px] text-ink-4 -mt-1">{totalTasks} total task{totalTasks !== 1 ? 's' : ''}</p>
+      {/* Status badge */}
+      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full shrink-0 ${
+        agent.status === 'RUNNING' ? 'bg-green-bg text-green-fg' : 'bg-hover text-ink-3'
+      }`}>
+        {agent.status === 'RUNNING' ? 'running' : 'idle'}
+      </span>
+
+      {/* Task bars */}
+      <div className="flex items-center gap-1 flex-1">
+        {/* Pending */}
+        <div className="flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-orange-fg shrink-0" />
+          <span className="text-[11px] font-mono text-ink-2 w-5 text-right">{agent.pending}</span>
+        </div>
+        {/* Active */}
+        <div className="flex items-center gap-1 ml-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+          <span className="text-[11px] font-mono text-ink-2 w-5 text-right">{agent.inProgress}</span>
+        </div>
+        {/* Done */}
+        <div className="flex items-center gap-1 ml-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-green shrink-0" />
+          <span className="text-[11px] font-mono text-ink-2 w-5 text-right">{agent.done}</span>
+        </div>
+
+        {/* Progress bar */}
+        {total > 0 && (
+          <div className="flex-1 h-1.5 bg-line rounded-full overflow-hidden ml-3 max-w-32">
+            <div
+              className="h-full bg-green rounded-full transition-all duration-500"
+              style={{ width: `${Math.round((agent.done / total) * 100)}%` }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Forwards to */}
+      {outgoingFlows.length > 0 && (
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[10px] text-ink-4 font-mono">→</span>
+          <div className="flex items-center gap-1">
+            {outgoingFlows.map((f) => {
+              const target = agentStats.find((a) => a.id === f.to)
+              return (
+                <span key={f.to} className="flex items-center gap-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded bg-accent-bg text-accent-fg">
+                  {target?.name ?? f.to.slice(0, 6)}
+                  <span className="opacity-60">×{f.count}</span>
+                </span>
+              )
+            })}
+          </div>
+        </div>
       )}
+
+      {/* Model */}
+      <span className="hidden lg:block text-[10px] font-mono text-ink-4 shrink-0 max-w-28 truncate">{agent.model}</span>
     </div>
   )
 }
 
-// ─── ConfirmModal ─────────────────────────────────────────────────────────────
+// ─── InboxFeed ────────────────────────────────────────────────────────────────
 
-function ConfirmModal({
-  modal,
-  onConfirm,
-  onCancel,
-}: {
-  modal: ConfirmModal
-  onConfirm: () => void
-  onCancel: () => void
-}) {
+function InboxFeed({ items }: { items: InboxItem[] }) {
+  if (items.length === 0) {
+    return <p className="text-[11px] text-ink-4 italic px-2 py-4 text-center">No pending tasks</p>
+  }
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-raised border border-line rounded-xl shadow-xl p-5 w-72 flex flex-col gap-4">
-        <div>
-          <p className="text-sm font-semibold text-ink">{actionLabel(modal.action)} agent?</p>
-          <p className="text-[12px] text-ink-3 mt-0.5">
-            {modal.action === 'restart'
-              ? `This will stop and restart "${modal.agentName}". In-flight tasks may be interrupted.`
-              : modal.action === 'stop'
-              ? `This will stop "${modal.agentName}". In-flight tasks may be interrupted.`
-              : `Start "${modal.agentName}" and begin processing tasks.`}
-          </p>
+    <div className="space-y-1.5">
+      {items.map((item) => (
+        <div key={item.id} className="flex flex-col gap-0.5 px-3 py-2.5 rounded-lg border border-line bg-raised hover:bg-hover transition-colors">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-[12px] font-medium text-ink leading-snug line-clamp-2">{item.title}</p>
+            <span className="text-[10px] font-mono text-ink-4 shrink-0">{relativeTime(item.createdAt)}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-hover text-ink-3">{item.agentName}</span>
+            {item.fromAgentName && (
+              <>
+                <span className="text-[9px] text-ink-4">from</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-accent-bg text-accent-fg">{item.fromAgentName}</span>
+              </>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-1.5 rounded-md border border-line text-ink-2 text-[12px] font-medium hover:bg-hover transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            className={`flex-1 py-1.5 rounded-md text-white text-[12px] font-medium hover:opacity-90 transition-opacity ${
-              modal.action === 'start' ? 'bg-accent' : modal.action === 'restart' ? 'bg-amber-500' : 'bg-red-500'
-            }`}
-          >
-            {actionLabel(modal.action)}
-          </button>
+      ))}
+    </div>
+  )
+}
+
+// ─── OutboxFeed ───────────────────────────────────────────────────────────────
+
+function OutboxFeed({ items }: { items: OutboxItem[] }) {
+  if (items.length === 0) {
+    return <p className="text-[11px] text-ink-4 italic px-2 py-4 text-center">No completed tasks yet</p>
+  }
+  return (
+    <div className="space-y-1.5">
+      {items.map((item) => (
+        <div key={item.id} className="flex flex-col gap-0.5 px-3 py-2.5 rounded-lg border border-line bg-raised hover:bg-hover transition-colors">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-[12px] font-medium text-ink leading-snug line-clamp-1">{item.title}</p>
+            <span className="text-[10px] font-mono text-ink-4 shrink-0">{relativeTime(item.createdAt)}</span>
+          </div>
+          {item.lastReply && (
+            <p className="text-[11px] text-ink-3 line-clamp-2 leading-snug">{item.lastReply}</p>
+          )}
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-green-bg text-green-fg self-start">{item.agentName}</span>
         </div>
-      </div>
+      ))}
     </div>
   )
 }
@@ -264,14 +222,10 @@ function ConfirmModal({
 
 export default function DashboardPage() {
   const router = useRouter()
-  const [agents, setAgents] = useState<Agent[]>([])
-  const [metrics, setMetrics] = useState<Record<string, AgentMetrics>>({})
-  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({})
-  const [confirmModal, setConfirmModal] = useState<ConfirmModal | null>(null)
+  const [data, setData] = useState<DashboardData | null>(null)
   const [isDark, setIsDark] = useState(false)
-  const [filter, setFilter] = useState<'all' | 'running' | 'idle'>('all')
+  const [feed, setFeed] = useState<'inbox' | 'outbox'>('inbox')
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const fetchingMetrics = useRef(false)
 
   useEffect(() => {
     setIsDark(document.documentElement.classList.contains('dark'))
@@ -284,85 +238,26 @@ export default function DashboardPage() {
     try { localStorage.setItem('theme', next ? 'dark' : 'light') } catch {}
   }
 
-  const fetchAgents = useCallback(async () => {
-    const res = await fetch('/api/agents')
+  const fetchDashboard = useCallback(async () => {
+    const res = await fetch('/api/dashboard')
     if (!res.ok) return
-    setAgents(await res.json())
-  }, [])
-
-  const fetchAllMetrics = useCallback(async (agentList: Agent[]) => {
-    if (fetchingMetrics.current) return
-    fetchingMetrics.current = true
-    const running = agentList.filter((a) => a.status === 'RUNNING')
-    const all = agentList
-    const results = await Promise.allSettled(
-      all.map(async (a) => {
-        const res = await fetch(`/api/agents/${a.id}/metrics`)
-        if (!res.ok) return null
-        const data: AgentMetrics = await res.json()
-        return { id: a.id, data }
-      })
-    )
-    setMetrics((prev) => {
-      const next = { ...prev }
-      for (const r of results) {
-        if (r.status === 'fulfilled' && r.value) {
-          next[r.value.id] = r.value.data
-        }
-      }
-      return next
-    })
+    setData(await res.json())
     setLastUpdated(new Date())
-    fetchingMetrics.current = false
   }, [])
 
   useEffect(() => {
-    fetchAgents()
-    const t = setInterval(fetchAgents, 5000)
+    fetchDashboard()
+    const t = setInterval(fetchDashboard, 6000)
     return () => clearInterval(t)
-  }, [fetchAgents])
+  }, [fetchDashboard])
 
-  useEffect(() => {
-    if (agents.length === 0) return
-    fetchAllMetrics(agents)
-    const t = setInterval(() => fetchAllMetrics(agents), 8000)
-    return () => clearInterval(t)
-  }, [agents, fetchAllMetrics])
-
-  async function executeAction(agentId: string, action: 'start' | 'stop' | 'restart') {
-    setActionLoading((prev) => ({ ...prev, [agentId]: true }))
-    try {
-      const res = await fetch(`/api/agents/${agentId}/${action}`, { method: 'POST' })
-      if (res.ok) {
-        const updated: Agent = await res.json()
-        setAgents((prev) => prev.map((a) => (a.id === updated.id ? updated : a)))
-      }
-    } finally {
-      setActionLoading((prev) => ({ ...prev, [agentId]: false }))
-      setTimeout(() => fetchAllMetrics(agents), 1500)
-    }
+  const { totals, agentStats, flows, inbox, outbox } = data ?? {
+    totals: { agents: 0, running: 0, pending: 0, inProgress: 0, done: 0 },
+    agentStats: [],
+    flows: [],
+    inbox: [],
+    outbox: [],
   }
-
-  function requestAction(agentId: string, agentName: string, action: 'start' | 'stop' | 'restart') {
-    setConfirmModal({ agentId, agentName, action })
-  }
-
-  function confirmAction() {
-    if (!confirmModal) return
-    const { agentId, action } = confirmModal
-    setConfirmModal(null)
-    executeAction(agentId, action)
-  }
-
-  const filtered = agents.filter((a) => {
-    if (filter === 'running') return a.status === 'RUNNING'
-    if (filter === 'idle') return a.status === 'STOPPED'
-    return true
-  })
-
-  const runningCount = agents.filter((a) => a.status === 'RUNNING').length
-  const pendingTotal = Object.values(metrics).reduce((s, m) => s + m.pending, 0)
-  const activeTotal = Object.values(metrics).reduce((s, m) => s + m.inProgress, 0)
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -387,7 +282,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-3">
           {lastUpdated && (
             <span className="hidden sm:inline text-[10px] font-mono text-ink-4">
-              updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
           )}
           <button
@@ -409,6 +304,12 @@ export default function DashboardPage() {
             )}
           </button>
           <button
+            onClick={() => router.push('/agents/new')}
+            className="text-[11px] font-medium px-3 py-1 rounded-md bg-accent text-white hover:opacity-90 transition-opacity"
+          >
+            + Agent
+          </button>
+          <button
             onClick={() => router.push('/')}
             className="text-[11px] font-medium px-3 py-1 rounded-md border border-line text-ink-2 hover:bg-hover transition-colors"
           >
@@ -417,93 +318,103 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Summary bar */}
-      <div className="flex items-center gap-6 px-6 py-3 border-b border-line bg-surface shrink-0">
-        <div className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${runningCount > 0 ? 'bg-green animate-pulse' : 'bg-ink-4'}`} />
-          <span className="text-[12px] font-mono text-ink-2">
-            <span className="font-semibold text-ink">{runningCount}</span>/{agents.length} agents running
-          </span>
-        </div>
-        {pendingTotal > 0 && (
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-orange-fg" />
-            <span className="text-[12px] font-mono text-ink-2">
-              <span className="font-semibold text-ink">{pendingTotal}</span> tasks pending
-            </span>
-          </div>
-        )}
-        {activeTotal > 0 && (
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-            <span className="text-[12px] font-mono text-ink-2">
-              <span className="font-semibold text-ink">{activeTotal}</span> in progress
-            </span>
-          </div>
-        )}
-        <div className="ml-auto flex items-center gap-1">
-          {(['all', 'running', 'idle'] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`text-[11px] font-medium px-2.5 py-1 rounded-full transition-colors ${
-                filter === f ? 'bg-ink text-bg' : 'text-ink-3 hover:text-ink hover:bg-hover'
-              }`}
-            >
-              {f === 'all' ? `All (${agents.length})` : f === 'running' ? `Running (${runningCount})` : `Idle (${agents.length - runningCount})`}
-            </button>
-          ))}
-        </div>
+      {/* Stats row */}
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-line bg-surface shrink-0 overflow-x-auto">
+        <StatTile label="Agents" value={totals.agents} />
+        <StatTile label="Running" value={totals.running} accent="text-green-fg" />
+        <StatTile label="Inbox pending" value={totals.pending} accent={totals.pending > 0 ? 'text-orange-fg' : undefined} />
+        <StatTile label="In progress" value={totals.inProgress} accent={totals.inProgress > 0 ? 'text-accent' : undefined} />
+        <StatTile label="Done" value={totals.done} accent="text-green-fg" />
       </div>
 
-      {/* Grid */}
-      <main className="flex-1 overflow-y-auto p-6">
-        {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 gap-3">
-            <p className="text-sm font-medium text-ink-2">No agents found</p>
-            <p className="text-xs text-ink-3">
-              {filter !== 'all' ? 'Try changing the filter above.' : 'Create your first agent to get started.'}
-            </p>
-            {filter === 'all' && (
+      {/* Main layout */}
+      <div className="flex-1 overflow-hidden flex gap-0">
+        {/* Left: agent flow */}
+        <div className="flex-1 overflow-y-auto p-5 min-w-0">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[11px] font-semibold text-ink-2 uppercase tracking-widest">Agent Pipeline</h2>
+            <div className="flex items-center gap-2 text-[10px] font-mono text-ink-4">
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-orange-fg" />pending</span>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-accent" />active</span>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green" />done</span>
+            </div>
+          </div>
+
+          {agentStats.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 gap-3">
+              <p className="text-sm font-medium text-ink-2">No agents yet</p>
               <button
                 onClick={() => router.push('/agents/new')}
-                className="mt-1 text-[12px] font-medium px-4 py-1.5 rounded-md bg-accent text-white hover:opacity-90 transition-opacity"
+                className="text-[12px] font-medium px-4 py-1.5 rounded-md bg-accent text-white hover:opacity-90 transition-opacity"
               >
-                New Agent
+                Create first agent
               </button>
-            )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {agentStats.map((agent) => (
+                <AgentRow
+                  key={agent.id}
+                  agent={agent}
+                  flows={flows}
+                  agentStats={agentStats}
+                  onNavigate={() => router.push('/?agent=' + agent.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right: inbox / outbox feed */}
+        <div className="w-80 shrink-0 border-l border-line flex flex-col overflow-hidden">
+          {/* Tab bar */}
+          <div className="flex items-center border-b border-line shrink-0">
+            <button
+              onClick={() => setFeed('inbox')}
+              className={`flex-1 py-2.5 text-[11px] font-semibold transition-colors ${
+                feed === 'inbox'
+                  ? 'text-ink border-b-2 border-accent -mb-px'
+                  : 'text-ink-3 hover:text-ink'
+              }`}
+            >
+              Inbox
+              {totals.pending > 0 && (
+                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-orange-bg text-orange-fg text-[9px] font-mono">
+                  {totals.pending}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setFeed('outbox')}
+              className={`flex-1 py-2.5 text-[11px] font-semibold transition-colors ${
+                feed === 'outbox'
+                  ? 'text-ink border-b-2 border-accent -mb-px'
+                  : 'text-ink-3 hover:text-ink'
+              }`}
+            >
+              Outbox
+              {totals.done > 0 && (
+                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-green-bg text-green-fg text-[9px] font-mono">
+                  {totals.done}
+                </span>
+              )}
+            </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filtered.map((agent) => (
-              <AgentCard
-                key={agent.id}
-                agent={agent}
-                metrics={metrics[agent.id] ?? null}
-                actionLoading={actionLoading[agent.id] ?? false}
-                onAction={(action) => requestAction(agent.id, agent.name, action)}
-                onNavigate={() => router.push('/?agent=' + agent.id)}
-              />
-            ))}
+
+          {/* Feed content */}
+          <div className="flex-1 overflow-y-auto p-3">
+            {feed === 'inbox' ? <InboxFeed items={inbox} /> : <OutboxFeed items={outbox} />}
           </div>
-        )}
-      </main>
+        </div>
+      </div>
 
       {/* Status bar */}
       <div className="h-7 hidden md:flex items-center px-6 border-t border-line bg-raised shrink-0 gap-5">
         <span className="text-[10px] font-mono text-ink-3">
-          {filtered.length} agent{filtered.length !== 1 ? 's' : ''} shown
+          {totals.running}/{totals.agents} running
         </span>
-        <span className="text-[10px] font-mono text-ink-4">auto-refresh every 5s</span>
+        <span className="text-[10px] font-mono text-ink-4">auto-refresh 6s</span>
       </div>
-
-      {confirmModal && (
-        <ConfirmModal
-          modal={confirmModal}
-          onConfirm={confirmAction}
-          onCancel={() => setConfirmModal(null)}
-        />
-      )}
     </div>
   )
 }
