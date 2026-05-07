@@ -70,7 +70,7 @@ async function runToolLoop(
   ]
   const hasSandbox = !!sandbox
 
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 50; i++) {
     const { finish_reason, message } = await openAICompatChat(
       baseURL, apiKey, model, messages, extraHeaders, hasSandbox,
     )
