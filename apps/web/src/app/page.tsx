@@ -687,6 +687,7 @@ function AgentChat({
   actionLoading,
   toolEvents,
   mobileVisible,
+  autoStart,
 }: {
   agent: Agent | null
   tasks: Task[]
@@ -699,12 +700,14 @@ function AgentChat({
   mobileVisible: boolean
   activityOpen: boolean
   onActivityToggle: () => void
+  autoStart: boolean
 }) {
   const [input, setInput] = useState('')
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!input.trim() || !agent || agent.status !== 'RUNNING') return
+    if (!input.trim() || !agent) return
+    if (!autoStart && agent.status !== 'RUNNING') return
     onSendTask(input.trim())
     setInput('')
   }
@@ -786,11 +789,11 @@ function AgentChat({
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={agent.status === 'RUNNING' ? 'New task…' : 'Start the agent first'}
-            disabled={agent.status !== 'RUNNING'}
+            placeholder={agent.status === 'RUNNING' ? 'New task…' : autoStart ? 'New task… (agent will start automatically)' : 'Start the agent first'}
+            disabled={!autoStart && agent.status !== 'RUNNING'}
             className="flex-1 bg-raised border border-line rounded-lg px-3.5 py-2 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent transition-colors disabled:opacity-50 disabled:bg-hover"
           />
-          <button type="submit" disabled={agent.status !== 'RUNNING' || !input.trim()} className="bg-accent hover:opacity-90 disabled:opacity-40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-opacity">
+          <button type="submit" disabled={(!autoStart && agent.status !== 'RUNNING') || !input.trim()} className="bg-accent hover:opacity-90 disabled:opacity-40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-opacity">
             Send
           </button>
         </form>
@@ -1470,6 +1473,7 @@ export default function Dashboard() {
             mobileVisible={mobilePanel === 'chat'}
             activityOpen={activityOpen}
             onActivityToggle={() => setActivityOpen(v => !v)}
+            autoStart={autoStart}
           />
         )}
 
