@@ -11,6 +11,10 @@ interface Agent {
   id: string
   name: string
   systemPrompt: string
+  provider: string
+  model: string
+  maxToolIterations: number
+  repoUrl: string | null
   status: AgentStatus
   containerId: string | null
 }
@@ -555,21 +559,74 @@ const HEALTH_ITEMS = [
   { label: 'API Rate', ok: true },
 ]
 
+const VALID_PROVIDERS = ['ollama', 'anthropic', 'openai'] as const
+
 function InboxOutboxPanel({
   messages,
   agentName,
   agentsRunning,
   agentsTotal,
   mobileVisible,
+  selectedAgent,
+  onAgentUpdated,
 }: {
   messages: Message[]
   agentName: string | null
   agentsRunning: number
   agentsTotal: number
   mobileVisible: boolean
+  selectedAgent: Agent | null
+  onAgentUpdated: (agent: Agent) => void
 }) {
   const [tab, setTab] = useState<'inbox' | 'outbox' | 'infra'>('inbox')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const [editName, setEditName] = useState('')
+  const [editSystemPrompt, setEditSystemPrompt] = useState('')
+  const [editProvider, setEditProvider] = useState('')
+  const [editModel, setEditModel] = useState('')
+  const [editMaxToolIterations, setEditMaxToolIterations] = useState(50)
+  const [editRepoUrl, setEditRepoUrl] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+
+  useEffect(() => {
+    if (selectedAgent) {
+      setEditName(selectedAgent.name)
+      setEditSystemPrompt(selectedAgent.systemPrompt)
+      setEditProvider(selectedAgent.provider)
+      setEditModel(selectedAgent.model)
+      setEditMaxToolIterations(selectedAgent.maxToolIterations)
+      setEditRepoUrl(selectedAgent.repoUrl ?? '')
+      setSaveError('')
+    }
+  }, [selectedAgent?.id])
+
+  async function handleSave() {
+    if (!selectedAgent) return
+    setSaving(true)
+    setSaveError('')
+    try {
+      const res = await fetch(`/api/agents/${selectedAgent.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editName,
+          systemPrompt: editSystemPrompt,
+          provider: editProvider,
+          model: editModel,
+          maxToolIterations: editMaxToolIterations,
+          repoUrl: editRepoUrl,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error ?? `Error ${res.status}`)
+      onAgentUpdated(data)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Save failed')
+    }
+    setSaving(false)
+  }
 
   const filtered = messages.filter((m) =>
     tab === 'inbox' ? m.direction === 'INBOX' : m.direction === 'OUTBOX'
@@ -623,6 +680,78 @@ function InboxOutboxPanel({
               <span className="text-[11px] font-mono text-ink">{agentsRunning}/{agentsTotal}</span>
             </div>
           </section>
+          {selectedAgent && (
+            <section>
+              <p className="text-[9px] font-semibold text-ink-3 uppercase tracking-widest mb-2.5">Agent Settings</p>
+              <div className="space-y-2.5">
+                <div>
+                  <label className="block text-[10px] text-ink-3 mb-1">Name</label>
+                  <input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-ink-3 mb-1">System Prompt</label>
+                  <textarea
+                    value={editSystemPrompt}
+                    onChange={(e) => setEditSystemPrompt(e.target.value)}
+                    rows={4}
+                    className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent resize-none font-sans"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-ink-3 mb-1">Provider</label>
+                  <select
+                    value={editProvider}
+                    onChange={(e) => setEditProvider(e.target.value)}
+                    className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent"
+                  >
+                    {VALID_PROVIDERS.map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-ink-3 mb-1">Model</label>
+                  <input
+                    value={editModel}
+                    onChange={(e) => setEditModel(e.target.value)}
+                    className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink font-mono focus:outline-none focus:border-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-ink-3 mb-1">Max Tool Iterations</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={500}
+                    value={editMaxToolIterations}
+                    onChange={(e) => setEditMaxToolIterations(Number(e.target.value))}
+                    className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-ink-3 mb-1">GitHub Repo</label>
+                  <input
+                    value={editRepoUrl}
+                    onChange={(e) => setEditRepoUrl(e.target.value)}
+                    placeholder="https://github.com/…"
+                    className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent"
+                  />
+                </div>
+                {saveError && (
+                  <p className="text-[10px] text-red-500">{saveError}</p>
+                )}
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="w-full py-1.5 rounded bg-accent text-white text-[11px] font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+                >
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </section>
+          )}
         </div>
       )}
 
@@ -970,6 +1099,8 @@ export default function Dashboard() {
           agentsRunning={agents.filter((a) => a.status === 'RUNNING').length}
           agentsTotal={agents.length}
           mobileVisible={mobilePanel === 'inbox'}
+          selectedAgent={selectedAgent}
+          onAgentUpdated={(updated) => setAgents((prev) => prev.map((a) => a.id === updated.id ? updated : a))}
         />
       </div>
       <StatusBar agents={agents} />
