@@ -184,23 +184,26 @@ function StatusDot({ status }: { status: AgentStatus }) {
 
 // ─── TopBar ──────────────────────────────────────────────────────────────────
 
-function TopBar({ isDark, onToggleDark, autoStart, onToggleAutoStart }: {
+function TopBar({ isDark, onToggleDark }: {
   isDark: boolean
   onToggleDark: () => void
-  autoStart: boolean
-  onToggleAutoStart: () => void
 }) {
   const router = useRouter()
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setSettingsOpen(false)
+      if (ref.current && !ref.current.contains(e.target as Node)) setMenuOpen(false)
     }
-    if (settingsOpen) document.addEventListener('mousedown', handleClick)
+    if (menuOpen) document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
-  }, [settingsOpen])
+  }, [menuOpen])
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    router.push('/login')
+  }
 
   return (
     <header className="h-11 flex items-center justify-between px-4 border-b border-line bg-raised shrink-0">
@@ -229,30 +232,44 @@ function TopBar({ isDark, onToggleDark, autoStart, onToggleAutoStart }: {
         </button>
         <div ref={ref} className="relative">
           <button
-            onClick={() => setSettingsOpen((v) => !v)}
-            title="Settings"
+            onClick={() => setMenuOpen((v) => !v)}
+            title="Account"
             className="w-7 h-7 rounded-full bg-hover border border-line flex items-center justify-center hover:border-accent/50 transition-colors"
           >
             <span className="text-[11px] font-semibold text-ink-2">U</span>
           </button>
-          {settingsOpen && (
-            <div className="absolute right-0 top-9 w-56 bg-raised border border-line rounded-lg shadow-lg z-50 p-3 flex flex-col gap-2">
-              <p className="text-[11px] font-semibold text-ink-3 uppercase tracking-wide px-1">Settings</p>
-              <label className="flex items-center justify-between gap-3 px-1 py-1.5 rounded-md hover:bg-hover cursor-pointer">
-                <div>
-                  <p className="text-xs font-medium text-ink">Auto-start agent</p>
-                  <p className="text-[11px] text-ink-3">Starts agent automatically when sending a message</p>
-                </div>
-                <button
-                  onClick={onToggleAutoStart}
-                  className={`relative w-8 h-4.5 rounded-full transition-colors shrink-0 ${autoStart ? 'bg-accent' : 'bg-line'}`}
-                  style={{ height: '18px', width: '32px' }}
-                >
-                  <span
-                    className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow transition-transform ${autoStart ? 'translate-x-[14px]' : 'translate-x-0.5'}`}
-                  />
-                </button>
-              </label>
+          {menuOpen && (
+            <div className="absolute right-0 top-9 w-44 bg-raised border border-line rounded-lg shadow-lg z-50 py-1 flex flex-col">
+              <button
+                onClick={() => { setMenuOpen(false); router.push('/account') }}
+                className="flex items-center gap-2.5 px-3 py-2 text-sm text-ink hover:bg-hover transition-colors text-left"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-ink-3 shrink-0">
+                  <circle cx="7" cy="4.5" r="2.5" stroke="currentColor" strokeWidth="1.3" />
+                  <path d="M2 12c0-2.21 2.239-4 5-4s5 1.79 5 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                </svg>
+                Account
+              </button>
+              <button
+                onClick={() => { setMenuOpen(false); router.push('/settings') }}
+                className="flex items-center gap-2.5 px-3 py-2 text-sm text-ink hover:bg-hover transition-colors text-left"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-ink-3 shrink-0">
+                  <circle cx="7" cy="7" r="2" stroke="currentColor" strokeWidth="1.3" />
+                  <path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.93 2.93l1.06 1.06M10.01 10.01l1.06 1.06M2.93 11.07l1.06-1.06M10.01 3.99l1.06-1.06" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                </svg>
+                Settings
+              </button>
+              <div className="h-px bg-line mx-2 my-1" />
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2.5 px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors text-left"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0">
+                  <path d="M5 2H2.5A1.5 1.5 0 001 3.5v7A1.5 1.5 0 002.5 12H5M9 10l3-3-3-3M13 7H5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Sign out
+              </button>
             </div>
           )}
         </div>
@@ -1422,7 +1439,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      <TopBar isDark={isDark} onToggleDark={toggleDark} autoStart={autoStart} onToggleAutoStart={toggleAutoStart} />
+      <TopBar isDark={isDark} onToggleDark={toggleDark} />
       {error && (
         <div className="mx-4 mt-2 px-3 py-2 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/40 rounded-md flex items-center justify-between gap-3 shrink-0">
           <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
