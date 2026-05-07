@@ -93,6 +93,43 @@ export const orchestrationTools = [
       },
     },
   },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'create_agent',
+      description: 'Create a new agent with a name, system prompt, provider and model.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Display name for the agent' },
+          system_prompt: { type: 'string', description: 'The system prompt / instructions for the agent' },
+          provider: { type: 'string', description: 'AI provider: ollama | anthropic | openai' },
+          model: { type: 'string', description: 'Model name, e.g. claude-haiku-4-5-20251001' },
+          repo_url: { type: 'string', description: 'Optional GitHub repo URL to clone into the sandbox' },
+        },
+        required: ['name', 'system_prompt', 'provider', 'model'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'update_agent',
+      description: 'Update the settings of an existing agent (system prompt, model, provider, name, etc.).',
+      parameters: {
+        type: 'object',
+        properties: {
+          agent_id: { type: 'string', description: 'ID of the agent to update' },
+          name: { type: 'string', description: 'New name (optional)' },
+          system_prompt: { type: 'string', description: 'New system prompt (optional)' },
+          provider: { type: 'string', description: 'New provider (optional): ollama | anthropic | openai' },
+          model: { type: 'string', description: 'New model name (optional)' },
+          repo_url: { type: 'string', description: 'New GitHub repo URL (optional)' },
+        },
+        required: ['agent_id'],
+      },
+    },
+  },
 ]
 
 export async function executeSandboxTool(
