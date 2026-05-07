@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import ReactMarkdown from 'react-markdown'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,52 @@ function fmtTime(iso: string) {
 
 function fmtTimeFull(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
+
+// ─── MarkdownContent ─────────────────────────────────────────────────────────
+
+function MarkdownContent({ content, light }: { content: string; light?: boolean }) {
+  const prose = light ? 'text-white' : 'text-ink'
+  return (
+    <ReactMarkdown
+      components={{
+        p: ({ children }) => <p className={`text-[13px] leading-relaxed mb-1.5 last:mb-0 ${prose}`}>{children}</p>,
+        ul: ({ children }) => <ul className="list-disc list-outside pl-4 mb-1.5 last:mb-0 space-y-0.5">{children}</ul>,
+        ol: ({ children }) => <ol className="list-decimal list-outside pl-4 mb-1.5 last:mb-0 space-y-0.5">{children}</ol>,
+        li: ({ children }) => <li className={`text-[13px] leading-relaxed ${prose}`}>{children}</li>,
+        h1: ({ children }) => <h1 className={`text-[15px] font-bold leading-snug mb-1.5 ${prose}`}>{children}</h1>,
+        h2: ({ children }) => <h2 className={`text-[14px] font-semibold leading-snug mb-1.5 ${prose}`}>{children}</h2>,
+        h3: ({ children }) => <h3 className={`text-[13px] font-semibold leading-snug mb-1 ${prose}`}>{children}</h3>,
+        code: ({ children, className }) => {
+          const isBlock = className?.includes('language-')
+          if (isBlock) {
+            return (
+              <code className={`block text-[11px] font-mono bg-black/10 dark:bg-white/10 rounded px-2 py-1.5 whitespace-pre-wrap break-all leading-relaxed ${light ? 'text-white/90' : 'text-ink-2'}`}>
+                {children}
+              </code>
+            )
+          }
+          return <code className={`text-[11px] font-mono px-1 py-0.5 rounded bg-black/10 dark:bg-white/10 ${light ? 'text-white/90' : 'text-ink-2'}`}>{children}</code>
+        },
+        pre: ({ children }) => <pre className="mb-1.5 last:mb-0 overflow-x-auto">{children}</pre>,
+        blockquote: ({ children }) => (
+          <blockquote className={`border-l-2 ${light ? 'border-white/40 pl-3 opacity-80' : 'border-line pl-3 text-ink-3'} text-[13px] leading-relaxed mb-1.5`}>
+            {children}
+          </blockquote>
+        ),
+        strong: ({ children }) => <strong className={`font-semibold ${prose}`}>{children}</strong>,
+        em: ({ children }) => <em className={`italic ${prose}`}>{children}</em>,
+        hr: () => <hr className={`my-2 ${light ? 'border-white/20' : 'border-line'}`} />,
+        a: ({ href, children }) => (
+          <a href={href} target="_blank" rel="noopener noreferrer" className={`underline underline-offset-2 ${light ? 'text-white/80 hover:text-white' : 'text-accent hover:opacity-80'}`}>
+            {children}
+          </a>
+        ),
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  )
 }
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
@@ -501,8 +548,8 @@ function ChatPanel({
           msg.direction === 'INBOX' ? (
             <div key={msg.id} className="flex items-end gap-2 justify-end">
               <div className="max-w-[70%] rounded-xl rounded-br-sm bg-accent px-3.5 py-2.5 dark:shadow-none shadow-sm">
-                <p className="text-[13px] text-white whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                <p className="text-[10px] text-white/50 mt-1 font-mono text-right">{fmtTime(msg.createdAt)}</p>
+                <MarkdownContent content={msg.content} light />
+                <p className="text-[10px] text-white/50 mt-1.5 font-mono text-right">{fmtTime(msg.createdAt)}</p>
               </div>
               <div className="w-6 h-6 rounded-full bg-accent-bg border border-accent-bdr flex items-center justify-center shrink-0">
                 <span className="text-[9px] font-bold text-accent-fg">U</span>
@@ -514,8 +561,8 @@ function ChatPanel({
                 <span className="text-[9px] font-bold text-bg">C</span>
               </div>
               <div className="max-w-[70%] rounded-xl rounded-bl-sm bg-raised border border-line px-3.5 py-2.5 dark:shadow-none shadow-sm">
-                <p className="text-[13px] text-ink whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                <p className="text-[10px] text-ink-3 mt-1 font-mono">{fmtTime(msg.createdAt)}</p>
+                <MarkdownContent content={msg.content} />
+                <p className="text-[10px] text-ink-3 mt-1.5 font-mono">{fmtTime(msg.createdAt)}</p>
               </div>
             </div>
           )
