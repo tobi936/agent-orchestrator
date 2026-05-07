@@ -60,6 +60,21 @@ export const sandboxTools = [
       },
     },
   },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'print_tree',
+      description: 'Print the directory tree of a path in the sandbox.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Absolute path to the directory (defaults to /)' },
+          depth: { type: 'number', description: 'Maximum depth to traverse (default: 3)' },
+        },
+        required: [],
+      },
+    },
+  },
 ]
 
 export const orchestrationTools = [
@@ -165,6 +180,23 @@ export async function executeSandboxTool(
         return `Error (exit ${result.exitCode}): ${out || '(no output)'}`
       }
       return out || '(no output)'
+    }
+
+    if (name === 'print_tree') {
+      const dir = input.path || '/'
+      const depth = Number(input.depth) || 3
+      let stdout = ''
+      let stderr = ''
+      const result = await sandbox.commands.run(`find ${dir} -maxdepth ${depth} | sort | awk 'NR>1{gsub(/[^/]*\//,"  ",$0); sub(/  /,"",$0)} {print}'`, {
+        timeoutMs: 30_000,
+        onStdout: (d) => { stdout += d },
+        onStderr: (d) => { stderr += d },
+      })
+      const out = (stdout + (stderr ? `\n[stderr] ${stderr}` : '')).trim()
+      if (result.exitCode !== 0) {
+        return `Error (exit ${result.exitCode}): ${out || '(no output)'}`
+      }
+      return out || '(empty)'
     }
 
     return `Unknown tool: ${name}`
