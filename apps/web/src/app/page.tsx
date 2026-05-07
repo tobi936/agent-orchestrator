@@ -407,18 +407,49 @@ function ToolEventRow({ event }: { event: ToolEvent }) {
   )
 }
 
-function activitySummary(toolEvents: ToolEvent[]): string {
+function ActivitySummaryChips({ toolEvents }: { toolEvents: ToolEvent[] }) {
   const calls = toolEvents.filter((e) => e.type === 'call')
-  if (calls.length === 0) return 'no tool calls yet'
-  const counts: Record<string, number> = {}
-  for (const e of calls) counts[e.name ?? 'unknown'] = (counts[e.name ?? 'unknown'] ?? 0) + 1
+  if (calls.length === 0) return null
+
   const errors = toolEvents.filter((e) => e.type === 'result' && !e.ok).length
-  const parts = Object.entries(counts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
-    .map(([name, n]) => `${name}${n > 1 ? ` ×${n}` : ''}`)
-  if (errors > 0) parts.push(`${errors} error${errors > 1 ? 's' : ''}`)
-  return parts.join(' · ')
+  const usedTools = [...new Set(calls.map((e) => e.name).filter(Boolean))] as string[]
+
+  // count lines added/removed from write_file / edit_file results
+  let added = 0, removed = 0
+  for (const e of toolEvents) {
+    if (e.type !== 'result' || !e.ok) continue
+    if (e.name === 'write_file' || e.name === 'edit_file') {
+      const input = toolEvents.find((c) => c.type === 'call' && c.name === e.name)?.input
+      const content = input?.content ?? input?.new_string ?? ''
+      added += content.split('\n').length
+    }
+  }
+  for (const e of toolEvents) {
+    if (e.type === 'call' && e.name === 'edit_file' && e.input?.old_string) {
+      removed += e.input.old_string.split('\n').length
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 ml-2 flex-1 min-w-0 overflow-hidden">
+      <span className="text-[10px] font-mono text-ink-3 shrink-0">{calls.length} calls</span>
+      {(added > 0 || removed > 0) && (
+        <>
+          <span className="text-ink-4 shrink-0">·</span>
+          {added > 0 && <span className="text-[10px] font-mono text-green shrink-0">+{added}</span>}
+          {removed > 0 && <span className="text-[10px] font-mono text-red-400 shrink-0">−{removed}</span>}
+        </>
+      )}
+      {errors > 0 && (
+        <>
+          <span className="text-ink-4 shrink-0">·</span>
+          <span className="text-[10px] font-mono text-red-400 shrink-0">{errors} err</span>
+        </>
+      )}
+      <span className="text-ink-4 shrink-0">·</span>
+      <span className="text-[10px] font-mono text-ink-4 truncate">{usedTools.join(' ')}</span>
+    </div>
+  )
 }
 
 function ActivityBox({ toolEvents, open, onToggle }: { toolEvents: ToolEvent[], open: boolean, onToggle: () => void }) {
@@ -427,9 +458,7 @@ function ActivityBox({ toolEvents, open, onToggle }: { toolEvents: ToolEvent[], 
       <button onClick={onToggle} className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-hover transition-colors">
         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
         <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Activity</span>
-        {!open && (
-          <span className="ml-2 text-[10px] font-mono text-ink-4 truncate flex-1 text-left">{activitySummary(toolEvents)}</span>
-        )}
+        {!open && <ActivitySummaryChips toolEvents={toolEvents} />}
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className={`ml-auto shrink-0 text-ink-4 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}>
           <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
