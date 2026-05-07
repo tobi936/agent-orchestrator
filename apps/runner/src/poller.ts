@@ -24,12 +24,15 @@ Rules:
 const ORCHESTRATION_INSTRUCTIONS = `
 
 ---
-You also have orchestration tools to coordinate with other agents and the human:
-- route_task(target_agent_id, title, content): When you're done, send a follow-up task to another agent
-- ask_human(question): If you need input from the human user, call this to pause and wait for their reply
+You also have orchestration tools to coordinate with other agents, the human, and the agent system:
+- route_task(target_agent_id, title, content): Send a follow-up task to another agent when you're done
+- ask_human(question): Pause and ask the human user a question; the task resumes when they reply
+- create_agent(name, system_prompt, provider, model, repo_url?): Create a new agent
+- update_agent(agent_id, name?, system_prompt?, provider?, model?, repo_url?): Update an existing agent's settings
 
 Use route_task when your work needs to be verified or continued by another agent.
-Use ask_human when you need clarification or approval from the human before proceeding.`
+Use ask_human when you need clarification or approval from the human.
+Use create_agent / update_agent to build or improve agents as part of your task.`
 
 async function tick() {
   const [tasks, allAgents] = await Promise.all([
@@ -105,6 +108,30 @@ async function tick() {
           if (toolName === 'ask_human') {
             askHumanQuestion = toolInput.question
             return `Question sent to human: ${toolInput.question}`
+          }
+          if (toolName === 'create_agent') {
+            const created = await prisma.agent.create({
+              data: {
+                name: toolInput.name,
+                systemPrompt: toolInput.system_prompt,
+                provider: toolInput.provider ?? 'anthropic',
+                model: toolInput.model ?? 'claude-haiku-4-5-20251001',
+                repoUrl: toolInput.repo_url ?? null,
+              },
+            })
+            appendLog(agent.id, `[agent] Created agent "${created.name}" (${created.id})`)
+            return `Agent created: ${created.name} (id: ${created.id})`
+          }
+          if (toolName === 'update_agent') {
+            const data: Record<string, string> = {}
+            if (toolInput.name) data.name = toolInput.name
+            if (toolInput.system_prompt) data.systemPrompt = toolInput.system_prompt
+            if (toolInput.provider) data.provider = toolInput.provider
+            if (toolInput.model) data.model = toolInput.model
+            if (toolInput.repo_url !== undefined) data.repoUrl = toolInput.repo_url
+            await prisma.agent.update({ where: { id: toolInput.agent_id }, data })
+            appendLog(agent.id, `[agent] Updated agent ${toolInput.agent_id}: ${JSON.stringify(data)}`)
+            return `Agent ${toolInput.agent_id} updated: ${Object.keys(data).join(', ')}`
           }
           if (sandbox) return executeSandboxTool(toolName, toolInput, sandbox)
           return `Tool ${toolName} not available without sandbox`
