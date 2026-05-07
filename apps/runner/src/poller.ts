@@ -2,7 +2,7 @@ import { prisma } from './db'
 import { createProvider, ChatHistoryMessage } from './providers'
 import { appendLog } from './logs'
 import { sandboxes } from './sandboxes'
-import { executeSandboxTool } from './tools'
+import { executeSandboxTool, ghTools, executeGhTool } from './tools'
 import { startAgent } from './start'
 
 const INTERVAL_MS = 3000
@@ -10,17 +10,34 @@ const INTERVAL_MS = 3000
 const TOOL_INSTRUCTIONS = `
 
 ---
-You have access to a live sandbox environment. You MUST use the following tools to actually perform tasks — never just explain how to do something, always do it directly.
+You are running inside an isolated cloud sandbox (E2B). You have full root access to a Linux environment and can do anything: install packages, run code, access the internet, read/write files, execute scripts.
+
+You MUST use the following tools to actually perform tasks — never explain how to do something, always do it directly.
 
 Available tools:
-- run_command(command): Run any bash command (ls, cat, grep, find, npm, python, curl, git, etc.)
+- run_command(command): Run any bash command (ls, cat, grep, find, npm, python, curl, git, apt-get, etc.)
 - read_file(path): Read the full contents of a file
 - write_file(path, content): Create or overwrite a file
 - edit_file(path, old_string, new_string): Replace an exact string in a file
 
 Rules:
+- You are inside a sandbox — use tools freely, nothing can break the host system
 - Always use tools to complete tasks — never describe what you would do, just do it
-- After running a command, always report the actual output to the user`
+- After running a command, always report the actual output to the user
+- If you need a package or tool, just install it with run_command`
+
+const GH_INSTRUCTIONS = `
+
+---
+You have GitHub tools to fetch data from GitHub without needing a terminal or curl. Use them proactively — never ask the user for information you can fetch yourself.
+
+Available tools:
+- gh_get_issue(owner, repo, number): Fetch a GitHub issue. Example: gh_get_issue("tobi936", "agent-orchestrator", 69)
+- gh_list_issues(owner, repo, state?): List issues. Example: gh_list_issues("tobi936", "agent-orchestrator")
+- gh_get_pull_request(owner, repo, number): Fetch a PR. Example: gh_get_pull_request("tobi936", "agent-orchestrator", 5)
+- gh_get_repo(owner, repo): Get repo info. Example: gh_get_repo("tobi936", "agent-orchestrator")
+
+When the user provides a GitHub URL like https://github.com/owner/repo/issues/42, extract owner="owner", repo="repo", number=42 and immediately call gh_get_issue — do not ask the user for the issue details.`
 
 const ORCHESTRATION_INSTRUCTIONS = `
 
@@ -69,7 +86,11 @@ async function tick() {
         ? `\n\n---\nAvailable agents you can delegate tasks to via route_task:\n${otherAgents.map((a) => `- ${a.name} (id: ${a.id}) — ${a.systemPrompt.slice(0, 100)}`).join('\n')}`
         : ''
 
+      const allowedSet = agent.allowedTools.length > 0 ? new Set(agent.allowedTools) : null
+      const hasGhTools = allowedSet === null || ghTools.some((t) => allowedSet.has(t.function.name))
+
       let systemPrompt = agent.systemPrompt + agentList + ORCHESTRATION_INSTRUCTIONS
+      if (hasGhTools) systemPrompt += GH_INSTRUCTIONS
       if (sandbox) {
         systemPrompt += TOOL_INSTRUCTIONS
         if (agent.repoUrl) {
@@ -137,6 +158,7 @@ async function tick() {
             appendLog(agent.id, `[agent] Updated agent ${toolInput.agent_id}: ${JSON.stringify(data)}`)
             return `Agent ${toolInput.agent_id} updated: ${Object.keys(data).join(', ')}`
           }
+          if (toolName.startsWith('gh_')) return executeGhTool(toolName, toolInput as Record<string, string | number>)
           if (sandbox) return executeSandboxTool(toolName, toolInput, sandbox)
           return `Tool ${toolName} not available without sandbox`
         },

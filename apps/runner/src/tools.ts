@@ -173,6 +173,94 @@ export async function executeSandboxTool(
   }
 }
 
+export const ghTools = [
+  {
+    type: 'function' as const,
+    function: {
+      name: 'gh_get_issue',
+      description: 'Fetch a GitHub issue by owner, repo and issue number. Use this whenever a GitHub issue URL or number is mentioned.',
+      parameters: {
+        type: 'object',
+        properties: {
+          owner: { type: 'string', description: 'Repository owner (username or org)' },
+          repo:  { type: 'string', description: 'Repository name' },
+          number: { type: 'number', description: 'Issue number' },
+        },
+        required: ['owner', 'repo', 'number'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'gh_list_issues',
+      description: 'List open issues for a GitHub repository.',
+      parameters: {
+        type: 'object',
+        properties: {
+          owner: { type: 'string', description: 'Repository owner' },
+          repo:  { type: 'string', description: 'Repository name' },
+          state: { type: 'string', enum: ['open', 'closed', 'all'], description: 'Filter by state (default: open)' },
+        },
+        required: ['owner', 'repo'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'gh_get_pull_request',
+      description: 'Fetch a GitHub pull request by owner, repo and PR number.',
+      parameters: {
+        type: 'object',
+        properties: {
+          owner: { type: 'string', description: 'Repository owner' },
+          repo:  { type: 'string', description: 'Repository name' },
+          number: { type: 'number', description: 'Pull request number' },
+        },
+        required: ['owner', 'repo', 'number'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'gh_get_repo',
+      description: 'Get information about a GitHub repository.',
+      parameters: {
+        type: 'object',
+        properties: {
+          owner: { type: 'string', description: 'Repository owner' },
+          repo:  { type: 'string', description: 'Repository name' },
+        },
+        required: ['owner', 'repo'],
+      },
+    },
+  },
+]
+
+async function ghFetch(path: string): Promise<string> {
+  const token = process.env.GITHUB_TOKEN
+  const headers: Record<string, string> = { Accept: 'application/vnd.github+json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const res = await fetch(`https://api.github.com${path}`, { headers })
+  const json = await res.json() as unknown
+  if (!res.ok) return `GitHub API error ${res.status}: ${JSON.stringify(json)}`
+  return JSON.stringify(json, null, 2)
+}
+
+export async function executeGhTool(name: string, input: Record<string, string | number>): Promise<string> {
+  try {
+    if (name === 'gh_get_issue') return ghFetch(`/repos/${input.owner}/${input.repo}/issues/${input.number}`)
+    if (name === 'gh_list_issues') return ghFetch(`/repos/${input.owner}/${input.repo}/issues?state=${input.state ?? 'open'}&per_page=30`)
+    if (name === 'gh_get_pull_request') return ghFetch(`/repos/${input.owner}/${input.repo}/pulls/${input.number}`)
+    if (name === 'gh_get_repo') return ghFetch(`/repos/${input.owner}/${input.repo}`)
+    return `Unknown gh tool: ${name}`
+  } catch (err) {
+    return `Error: ${err instanceof Error ? err.message : String(err)}`
+  }
+}
+
 // Re-export for backward compat
 export const tools = sandboxTools
 export const executeTool = executeSandboxTool
