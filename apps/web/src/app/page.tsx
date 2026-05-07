@@ -56,6 +56,12 @@ function MarkdownContent({ content, light }: { content: string; light?: boolean 
   return (
     <ReactMarkdown
       components={{
+        table: ({ children }) => <div className="overflow-x-auto"><table className="w-full border-collapse mb-2">{children}</table></div>,
+        thead: ({ children }) => <thead className="bg-ink-5 border-b border-line">{children}</thead>,
+        tbody: ({ children }) => <tbody>{children}</tbody>,
+        tr: ({ children }) => <tr className="border-b border-line last:border-0">{children}</tr>,
+        th: ({ children }) => <th className="px-2 py-1 text-left text-[11px] font-medium text-ink-3 bg-ink-6 border border-line">{children}</th>,
+        td: ({ children }) => <td className="px-2 py-1 text-[11px] text-ink-2 border border-line">{children}</td>,
         p: ({ children }) => <p className={`text-[13px] leading-relaxed mb-1.5 last:mb-0 ${prose}`}>{children}</p>,
         ul: ({ children }) => <ul className="list-disc list-outside pl-4 mb-1.5 last:mb-0 space-y-0.5">{children}</ul>,
         ol: ({ children }) => <ol className="list-decimal list-outside pl-4 mb-1.5 last:mb-0 space-y-0.5">{children}</ol>,
