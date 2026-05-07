@@ -91,6 +91,21 @@ export const sandboxTools = [
   {
     type: 'function' as const,
     function: {
+      name: 'copy_file',
+      description: 'Copy a file to a new location in the sandbox.',
+      parameters: {
+        type: 'object',
+        properties: {
+          source: { type: 'string', description: 'Absolute path to the source file' },
+          destination: { type: 'string', description: 'Absolute path to the destination' },
+        },
+        required: ['source', 'destination'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'delete_file',
       description: 'Delete a file in the sandbox.',
       parameters: {
@@ -263,6 +278,11 @@ export async function executeSandboxTool(
     if (name === 'list_directory') {
       const entries = await sandbox.files.list(input.path)
       return entries.map((e) => `${e.type === 'dir' ? 'd' : 'f'} ${e.name}`).join('\n') || '(empty)'
+    }
+
+    if (name === 'copy_file') {
+      await sandbox.commands.run(`cp "${input.source}" "${input.destination}"`)
+      return `Copied: ${input.source} → ${input.destination}`
     }
 
     if (name === 'delete_file') {
