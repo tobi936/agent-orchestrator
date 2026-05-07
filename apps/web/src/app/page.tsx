@@ -231,14 +231,18 @@ function ToolEventRow({ event }: { event: ToolEvent }) {
         <span className="w-4 h-4 rounded flex items-center justify-center bg-purple-100 dark:bg-purple-900/30 text-purple-500 shrink-0 mt-0.5">
           <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M4.5 1.5a3 3 0 1 1 0 6 3 3 0 0 1 0-6z" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 3.5v1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="4.5" cy="6.2" r="0.4" fill="currentColor"/></svg>
         </span>
-        <button onClick={() => setExpanded((v) => !v)} className="text-left min-w-0 flex-1">
-          <span className="text-[11px] font-mono text-purple-500 dark:text-purple-400 italic truncate block hover:text-purple-400 transition-colors">
-            thinking{expanded ? '' : ': ' + (event.text ?? '').slice(0, 60) + ((event.text?.length ?? 0) > 60 ? '…' : '')}
-          </span>
-          {expanded && (
-            <p className="mt-1 text-[11px] text-ink-3 leading-relaxed whitespace-pre-wrap">{event.text}</p>
-          )}
-        </button>
+        <div className="text-left min-w-0 flex-1">
+          <button onClick={() => setExpanded((v) => !v)} className="text-left w-full">
+            <span className="text-[11px] font-mono text-purple-500 dark:text-purple-400 italic truncate block hover:text-purple-400 transition-colors">
+              thinking{expanded ? '' : ': ' + (event.text ?? '').slice(0, 60) + ((event.text?.length ?? 0) > 60 ? '…' : '')}
+            </span>
+          </button>
+          <div className={`grid transition-all duration-200 ease-in-out ${expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+            <div className="overflow-hidden">
+              <p className="mt-1 text-[11px] text-ink-3 leading-relaxed whitespace-pre-wrap">{event.text}</p>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -268,16 +272,20 @@ function ToolEventRow({ event }: { event: ToolEvent }) {
         <button onClick={() => setExpanded((v) => !v)} className="text-left w-full">
           <span className="text-[11px] font-mono text-ink-3 hover:text-ink-2 transition-colors truncate block">{label}</span>
         </button>
-        {expanded && isCall && event.input && (
-          <pre className="mt-1 text-[10px] font-mono text-ink-3 bg-raised border border-line rounded p-2 whitespace-pre-wrap break-all max-h-40 overflow-y-auto">
-            {JSON.stringify(event.input, null, 2)}
-          </pre>
-        )}
-        {expanded && !isCall && event.result && (
-          <pre className="mt-1 text-[10px] font-mono text-ink-3 bg-raised border border-line rounded p-2 whitespace-pre-wrap break-all max-h-64 overflow-y-auto">
-            {event.result}
-          </pre>
-        )}
+        <div className={`grid transition-all duration-200 ease-in-out ${expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+          <div className="overflow-hidden">
+            {isCall && event.input && (
+              <pre className="mt-1 text-[10px] font-mono text-ink-3 bg-raised border border-line rounded p-2 whitespace-pre-wrap break-all max-h-40 overflow-y-auto">
+                {JSON.stringify(event.input, null, 2)}
+              </pre>
+            )}
+            {!isCall && event.result && (
+              <pre className="mt-1 text-[10px] font-mono text-ink-3 bg-raised border border-line rounded p-2 whitespace-pre-wrap break-all max-h-64 overflow-y-auto">
+                {event.result}
+              </pre>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -304,9 +312,27 @@ function ChatPanel({
 }) {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const isAtBottomRef = useRef(true)
+  const lastMessageCountRef = useRef(0)
+
+  function checkIfAtBottom() {
+    const el = scrollContainerRef.current
+    if (!el) return true
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 60
+  }
+
+  function handleScroll() {
+    isAtBottomRef.current = checkIfAtBottom()
+  }
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const newCount = messages.length
+    const added = newCount > lastMessageCountRef.current
+    lastMessageCountRef.current = newCount
+    if (added && isAtBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [messages])
 
   function handleSubmit(e: React.FormEvent) {
@@ -314,6 +340,8 @@ function ChatPanel({
     if (!input.trim() || !agent || agent.status !== 'RUNNING') return
     onSend(input.trim())
     setInput('')
+    isAtBottomRef.current = true
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
   }
 
   if (!agent) {
@@ -368,7 +396,7 @@ function ChatPanel({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 relative">
         {messages.length === 0 && toolEvents.length === 0 && (
           <div className="flex items-center justify-center h-full">
             <p className="text-xs text-ink-3">
