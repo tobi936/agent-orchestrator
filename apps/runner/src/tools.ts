@@ -63,6 +63,20 @@ export const sandboxTools = [
   {
     type: 'function' as const,
     function: {
+      name: 'make_directory',
+      description: 'Create a directory (and all parent directories) in the sandbox.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Absolute path of the directory to create' },
+        },
+        required: ['path'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'list_directory',
       description: 'List files and directories inside a directory (non-recursive).',
       parameters: {
@@ -239,6 +253,11 @@ export async function executeSandboxTool(
         return `Error (exit ${result.exitCode}): ${out || '(no output)'}`
       }
       return out || '(no output)'
+    }
+
+    if (name === 'make_directory') {
+      await sandbox.commands.run(`mkdir -p "${input.path}"`)
+      return `Created: ${input.path}`
     }
 
     if (name === 'list_directory') {
