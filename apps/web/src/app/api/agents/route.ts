@@ -16,7 +16,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { name, systemPrompt, provider, model, command, repoUrl, maxToolIterations } = await req.json()
+    const { name, systemPrompt, provider, model, command, repoUrl, maxToolIterations, allowedTools } = await req.json()
 
     if (!name || !systemPrompt) {
       return NextResponse.json({ error: 'name and systemPrompt required' }, { status: 400 })
@@ -37,6 +37,7 @@ export async function POST(req: Request) {
         command: command?.trim() || null,
         repoUrl: repoUrl?.trim() || null,
         maxToolIterations: typeof maxToolIterations === 'number' && maxToolIterations > 0 ? maxToolIterations : 50,
+        allowedTools: Array.isArray(allowedTools) ? allowedTools.filter((t: unknown) => typeof t === 'string') : [],
       },
     })
     return NextResponse.json(agent, { status: 201 })

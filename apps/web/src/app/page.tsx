@@ -16,6 +16,7 @@ interface Agent {
   provider: string
   model: string
   maxToolIterations: number
+  allowedTools: string[]
   repoUrl: string | null
   status: AgentStatus
   containerId: string | null
@@ -759,6 +760,17 @@ function HumanInbox({
 
 const VALID_PROVIDERS = ['ollama', 'anthropic', 'openai'] as const
 
+const ALL_TOOLS = [
+  { name: 'read_file',    label: 'Read File',    group: 'Sandbox' },
+  { name: 'write_file',   label: 'Write File',   group: 'Sandbox' },
+  { name: 'edit_file',    label: 'Edit File',    group: 'Sandbox' },
+  { name: 'run_command',  label: 'Run Command',  group: 'Sandbox' },
+  { name: 'route_task',   label: 'Route Task',   group: 'Orchestration' },
+  { name: 'ask_human',    label: 'Ask Human',    group: 'Orchestration' },
+  { name: 'create_agent', label: 'Create Agent', group: 'Orchestration' },
+  { name: 'update_agent', label: 'Update Agent', group: 'Orchestration' },
+]
+
 function TaskBacklogPanel({
   tasks,
   agentName,
@@ -776,8 +788,8 @@ function TaskBacklogPanel({
 }: {
   tasks: Task[]
   agentName: string | null
-  tab: 'inbox' | 'outbox' | 'infra'
-  onTabChange: (t: 'inbox' | 'outbox' | 'infra') => void
+  tab: 'inbox' | 'outbox' | 'settings'
+  onTabChange: (t: 'inbox' | 'outbox' | 'settings') => void
   selectedTaskId: string | null
   onSelectTask: (id: string) => void
   outboxTasks: Task[]
@@ -794,6 +806,7 @@ function TaskBacklogPanel({
   const [editModel, setEditModel] = useState('')
   const [editMaxToolIterations, setEditMaxToolIterations] = useState(50)
   const [editRepoUrl, setEditRepoUrl] = useState('')
+  const [editAllowedTools, setEditAllowedTools] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
@@ -805,6 +818,7 @@ function TaskBacklogPanel({
       setEditModel(selectedAgent.model)
       setEditMaxToolIterations(selectedAgent.maxToolIterations)
       setEditRepoUrl(selectedAgent.repoUrl ?? '')
+      setEditAllowedTools(selectedAgent.allowedTools ?? [])
       setSaveError('')
     }
   }, [selectedAgent?.id])
@@ -817,7 +831,7 @@ function TaskBacklogPanel({
       const res = await fetch(`/api/agents/${selectedAgent.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: editName, systemPrompt: editSystemPrompt, provider: editProvider, model: editModel, maxToolIterations: editMaxToolIterations, repoUrl: editRepoUrl }),
+        body: JSON.stringify({ name: editName, systemPrompt: editSystemPrompt, provider: editProvider, model: editModel, maxToolIterations: editMaxToolIterations, repoUrl: editRepoUrl, allowedTools: editAllowedTools }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? `Error ${res.status}`)
@@ -835,13 +849,13 @@ function TaskBacklogPanel({
   return (
     <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex w-full md:w-[320px] shrink-0 flex-col inbox-panel overflow-hidden`}>
       <div className="h-11 flex items-center gap-1 px-3 border-b border-line shrink-0">
-        {(['inbox', 'outbox', 'infra'] as const).map((t) => (
+        {(['inbox', 'outbox', 'settings'] as const).map((t) => (
           <button
             key={t}
             onClick={() => onTabChange(t)}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${tab === t ? 'bg-selected text-ink' : 'text-ink-3 hover:text-ink hover:bg-hover'}`}
           >
-            {t === 'inbox' ? 'Inbox' : t === 'outbox' ? 'Outbox' : 'Infra'}
+            {t === 'inbox' ? 'Inbox' : t === 'outbox' ? 'Outbox' : 'Agent Settings'}
             {t === 'inbox' && inboxPending > 0 && (
               <span className="w-4 h-4 rounded-full bg-accent text-white text-[9px] flex items-center justify-center font-mono leading-none">
                 {inboxPending}
@@ -851,7 +865,7 @@ function TaskBacklogPanel({
         ))}
       </div>
 
-      {tab === 'infra' && (
+      {tab === 'settings' && (
         <div className="flex-1 overflow-y-auto p-3 space-y-5">
           <section>
             <p className="text-[9px] font-semibold text-ink-3 uppercase tracking-widest mb-2.5">Agents</p>
@@ -906,6 +920,50 @@ function TaskBacklogPanel({
                   <label className="block text-[10px] text-ink-3 mb-1">GitHub Repo</label>
                   <input value={editRepoUrl} onChange={(e) => setEditRepoUrl(e.target.value)} placeholder="https://github.com/…" className="w-full bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent" />
                 </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[10px] text-ink-3">Tool Access</label>
+                    <button
+                      type="button"
+                      onClick={() => setEditAllowedTools(editAllowedTools.length === ALL_TOOLS.length ? [] : ALL_TOOLS.map((t) => t.name))}
+                      className="text-[9px] text-accent hover:opacity-75 transition-opacity"
+                    >
+                      {editAllowedTools.length === ALL_TOOLS.length ? 'Deselect all' : editAllowedTools.length === 0 ? 'All enabled' : 'Select all'}
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-ink-4 mb-2">{editAllowedTools.length === 0 ? 'All tools enabled (no restriction)' : `${editAllowedTools.length} of ${ALL_TOOLS.length} tools allowed`}</p>
+                  {(['Sandbox', 'Orchestration'] as const).map((group) => (
+                    <div key={group} className="mb-2">
+                      <p className="text-[9px] font-semibold text-ink-4 uppercase tracking-widest mb-1">{group}</p>
+                      <div className="space-y-1">
+                        {ALL_TOOLS.filter((t) => t.group === group).map((tool) => {
+                          const checked = editAllowedTools.length === 0 || editAllowedTools.includes(tool.name)
+                          return (
+                            <label key={tool.name} className="flex items-center gap-2 cursor-pointer group">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    const next = editAllowedTools.length === 0
+                                      ? ALL_TOOLS.map((t) => t.name).filter((n) => n !== tool.name ? true : true)
+                                      : [...editAllowedTools, tool.name]
+                                    setEditAllowedTools(next.length === ALL_TOOLS.length ? [] : next)
+                                  } else {
+                                    const base = editAllowedTools.length === 0 ? ALL_TOOLS.map((t) => t.name) : editAllowedTools
+                                    setEditAllowedTools(base.filter((n) => n !== tool.name))
+                                  }
+                                }}
+                                className="accent-accent w-3 h-3"
+                              />
+                              <span className="text-[11px] text-ink font-mono">{tool.name}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
                 {saveError && <p className="text-[10px] text-red-500">{saveError}</p>}
                 <button onClick={handleSave} disabled={saving} className="w-full py-1.5 rounded bg-accent text-white text-[11px] font-medium hover:opacity-90 disabled:opacity-50 transition-opacity">
                   {saving ? 'Saving…' : 'Save'}
@@ -916,7 +974,7 @@ function TaskBacklogPanel({
         </div>
       )}
 
-      {tab !== 'infra' && (
+      {tab !== 'settings' && (
         <div className="flex-1 overflow-y-auto">
           {!agentName ? (
             <div className="flex items-center justify-center h-full">
@@ -1024,7 +1082,7 @@ export default function Dashboard() {
   const [mobilePanel, setMobilePanel] = useState<'agents' | 'chat' | 'tasks'>('agents')
   const [error, setError] = useState<string | null>(null)
   const [sidebarView, setSidebarView] = useState<SidebarView>('agents')
-  const [backlogTab, setBacklogTab] = useState<'inbox' | 'outbox' | 'infra'>('inbox')
+  const [backlogTab, setBacklogTab] = useState<'inbox' | 'outbox' | 'settings'>('inbox')
   const toolEventCounter = useRef(0)
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? null
