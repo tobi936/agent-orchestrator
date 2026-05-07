@@ -1,5 +1,5 @@
 import { Sandbox } from 'e2b'
-import { sandboxTools, orchestrationTools, executeSandboxTool } from '../tools'
+import { sandboxTools, orchestrationTools, ghTools, executeSandboxTool, executeGhTool } from '../tools'
 
 export interface ChatHistoryMessage {
   role: 'user' | 'assistant'
@@ -91,6 +91,7 @@ async function runToolLoop(
   const toolList = filterTools([
     ...(sandbox ? sandboxTools : []),
     ...orchestrationTools,
+    ...ghTools,
   ], allowedTools)
 
   for (let i = 0; i < maxToolIterations; i++) {
@@ -114,6 +115,8 @@ async function runToolLoop(
       const isOrchestrationTool = ['route_task', 'ask_human', 'create_agent', 'update_agent'].includes(tc.function.name)
       if (customToolHandler && isOrchestrationTool) {
         result = await customToolHandler(tc.function.name, input)
+      } else if (tc.function.name.startsWith('gh_')) {
+        result = await executeGhTool(tc.function.name, input as Record<string, string | number>)
       } else if (sandbox) {
         result = await executeSandboxTool(tc.function.name, input, sandbox)
       } else {
@@ -148,6 +151,7 @@ async function runAnthropicToolLoop(
   const toolList = filterTools([
     ...(sandbox ? sandboxTools : []),
     ...orchestrationTools,
+    ...ghTools,
   ], allowedTools).map((t) => ({
     name: t.function.name,
     description: t.function.description,
@@ -197,6 +201,8 @@ async function runAnthropicToolLoop(
       const isOrchestrationTool = ['route_task', 'ask_human', 'create_agent', 'update_agent'].includes(block.name)
       if (customToolHandler && isOrchestrationTool) {
         result = await customToolHandler(block.name, block.input)
+      } else if (block.name.startsWith('gh_')) {
+        result = await executeGhTool(block.name, block.input as Record<string, string | number>)
       } else if (sandbox) {
         result = await executeSandboxTool(block.name, block.input, sandbox)
       } else {

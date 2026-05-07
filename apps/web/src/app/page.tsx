@@ -812,14 +812,18 @@ function HumanInbox({
 const VALID_PROVIDERS = ['ollama', 'anthropic', 'openai'] as const
 
 const ALL_TOOLS = [
-  { name: 'read_file',    label: 'Read File',    group: 'Sandbox' },
-  { name: 'write_file',   label: 'Write File',   group: 'Sandbox' },
-  { name: 'edit_file',    label: 'Edit File',    group: 'Sandbox' },
-  { name: 'run_command',  label: 'Run Command',  group: 'Sandbox' },
-  { name: 'route_task',   label: 'Route Task',   group: 'Orchestration' },
-  { name: 'ask_human',    label: 'Ask Human',    group: 'Orchestration' },
-  { name: 'create_agent', label: 'Create Agent', group: 'Orchestration' },
-  { name: 'update_agent', label: 'Update Agent', group: 'Orchestration' },
+  { name: 'read_file',          label: 'Read File',          group: 'Sandbox' },
+  { name: 'write_file',         label: 'Write File',         group: 'Sandbox' },
+  { name: 'edit_file',          label: 'Edit File',          group: 'Sandbox' },
+  { name: 'run_command',        label: 'Run Command',        group: 'Sandbox' },
+  { name: 'route_task',         label: 'Route Task',         group: 'Orchestration' },
+  { name: 'ask_human',          label: 'Ask Human',          group: 'Orchestration' },
+  { name: 'create_agent',       label: 'Create Agent',       group: 'Orchestration' },
+  { name: 'update_agent',       label: 'Update Agent',       group: 'Orchestration' },
+  { name: 'gh_get_issue',       label: 'Get Issue',          group: 'GitHub' },
+  { name: 'gh_list_issues',     label: 'List Issues',        group: 'GitHub' },
+  { name: 'gh_get_pull_request',label: 'Get Pull Request',   group: 'GitHub' },
+  { name: 'gh_get_repo',        label: 'Get Repo',           group: 'GitHub' },
 ]
 
 function TaskBacklogPanel({
@@ -983,7 +987,7 @@ function TaskBacklogPanel({
                     </button>
                   </div>
                   <p className="text-[9px] text-ink-4 mb-2">{editAllowedTools.length === 0 ? 'All tools enabled (no restriction)' : `${editAllowedTools.length} of ${ALL_TOOLS.length} tools allowed`}</p>
-                  {(['Sandbox', 'Orchestration'] as const).map((group) => (
+                  {(['Sandbox', 'Orchestration', 'GitHub'] as const).map((group) => (
                     <div key={group} className="mb-2">
                       <p className="text-[9px] font-semibold text-ink-4 uppercase tracking-widest mb-1">{group}</p>
                       <div className="space-y-1">
