@@ -259,6 +259,14 @@ export const orchestrationTools = [
   },
 ]
 
+const MAX_OUTPUT_CHARS = 4000
+
+function truncate(output: string): string {
+  if (output.length <= MAX_OUTPUT_CHARS) return output
+  const omitted = output.length - MAX_OUTPUT_CHARS
+  return output.slice(0, MAX_OUTPUT_CHARS) + `\n… [${omitted} chars truncated — use a more targeted command to get the rest]`
+}
+
 export async function executeSandboxTool(
   name: string,
   input: Record<string, string>,
@@ -270,10 +278,10 @@ export async function executeSandboxTool(
       const current = await sandbox.files.read(input.path)
       if (tracker) {
         const cached = tracker.getCached(input.path, current)
-        if (cached !== null) return cached
+        if (cached !== null) return truncate(cached)
         tracker.onRead(input.path, current)
       }
-      return current
+      return truncate(current)
     }
 
     if (name === 'write_file') {
@@ -303,9 +311,9 @@ export async function executeSandboxTool(
       })
       const out = (stdout + (stderr ? `\n[stderr] ${stderr}` : '')).trim()
       if (result.exitCode !== 0) {
-        return `Error (exit ${result.exitCode}): ${out || '(no output)'}`
+        return truncate(`Error (exit ${result.exitCode}): ${out || '(no output)'}`)
       }
-      return out || '(no output)'
+      return truncate(out || '(no output)')
     }
 
     if (name === 'make_directory') {
@@ -315,7 +323,7 @@ export async function executeSandboxTool(
 
     if (name === 'list_directory') {
       const entries = await sandbox.files.list(input.path)
-      return entries.map((e) => `${e.type === 'dir' ? 'd' : 'f'} ${e.name}`).join('\n') || '(empty)'
+      return truncate(entries.map((e) => `${e.type === 'dir' ? 'd' : 'f'} ${e.name}`).join('\n') || '(empty)')
     }
 
     if (name === 'copy_file') {
@@ -342,7 +350,7 @@ export async function executeSandboxTool(
         onStdout: (d) => { stdout += d },
         onStderr: (d) => { stderr += d },
       })
-      return stdout.trim() || '(no matches)'
+      return truncate(stdout.trim() || '(no matches)')
     }
 
     if (name === 'print_tree') {
@@ -357,9 +365,9 @@ export async function executeSandboxTool(
       })
       const out = (stdout + (stderr ? `\n[stderr] ${stderr}` : '')).trim()
       if (result.exitCode !== 0) {
-        return `Error (exit ${result.exitCode}): ${out || '(no output)'}`
+        return truncate(`Error (exit ${result.exitCode}): ${out || '(no output)'}`)
       }
-      return out || '(empty)'
+      return truncate(out || '(empty)')
     }
 
     return `Unknown tool: ${name}`
