@@ -66,16 +66,16 @@ async function runStartup(
         await sandbox.commands.run(
           `git config --global credential.helper store && ` +
           `echo "https://oauth2:${githubToken}@github.com" > ~/.git-credentials && ` +
-          `git config --global user.email "agent@agent-orchestrator" && ` +
-          `git config --global user.name "Agent"`,
+          `git config --global user.email "nexus@agent-orchestrator" && ` +
+          `git config --global user.name "nexus"`,
           { timeoutMs: 10_000 },
         )
       } else {
         // No token — configure a generic identity so commits work on public repos
         appendLog(agentId, `[${ts()}] No GITHUB_TOKEN set — configuring anonymous git identity…`)
         await sandbox.commands.run(
-          `git config --global user.email "agent@agent-orchestrator" && ` +
-          `git config --global user.name "Agent"`,
+          `git config --global user.email "nexus@agent-orchestrator" && ` +
+          `git config --global user.name "nexus"`,
           { timeoutMs: 10_000 },
         )
       }
