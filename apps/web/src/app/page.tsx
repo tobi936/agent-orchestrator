@@ -1069,13 +1069,16 @@ export default function Dashboard() {
   }, [messages])
 
   useEffect(() => {
-    if (!selectedAgentId) { setToolEvents([]); setToolEventGroups({}); seenOutboxIds.current = new Set(); return }
-    const selectedAgent = agents.find((a) => a.id === selectedAgentId)
-    if (selectedAgent?.status !== 'RUNNING') { setToolEvents([]); return }
-
     setToolEvents([])
     setToolEventGroups({})
     seenOutboxIds.current = new Set()
+  }, [selectedAgentId])
+
+  useEffect(() => {
+    if (!selectedAgentId) return
+    const selectedAgent = agents.find((a) => a.id === selectedAgentId)
+    if (selectedAgent?.status !== 'RUNNING') return
+
     const es = new EventSource(`/api/agents/${selectedAgentId}/logs`)
     es.onmessage = (e) => {
       try {
