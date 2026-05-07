@@ -407,13 +407,30 @@ function ToolEventRow({ event }: { event: ToolEvent }) {
   )
 }
 
+function activitySummary(toolEvents: ToolEvent[]): string {
+  const calls = toolEvents.filter((e) => e.type === 'call')
+  if (calls.length === 0) return 'no tool calls yet'
+  const counts: Record<string, number> = {}
+  for (const e of calls) counts[e.name ?? 'unknown'] = (counts[e.name ?? 'unknown'] ?? 0) + 1
+  const errors = toolEvents.filter((e) => e.type === 'result' && !e.ok).length
+  const parts = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([name, n]) => `${name}${n > 1 ? ` ×${n}` : ''}`)
+  if (errors > 0) parts.push(`${errors} error${errors > 1 ? 's' : ''}`)
+  return parts.join(' · ')
+}
+
 function ActivityBox({ toolEvents, open, onToggle }: { toolEvents: ToolEvent[], open: boolean, onToggle: () => void }) {
   return (
     <div className="border border-line rounded-lg bg-surface overflow-hidden">
       <button onClick={onToggle} className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-hover transition-colors">
         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
         <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Activity</span>
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className={`ml-auto text-ink-4 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}>
+        {!open && (
+          <span className="ml-2 text-[10px] font-mono text-ink-4 truncate flex-1 text-left">{activitySummary(toolEvents)}</span>
+        )}
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className={`ml-auto shrink-0 text-ink-4 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}>
           <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </button>
