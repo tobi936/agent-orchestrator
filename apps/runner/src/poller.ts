@@ -212,6 +212,7 @@ async function tick() {
               fromAgentId: agent.id,
               title: routeTarget.title,
               content: routeTarget.content,
+              thread: { create: [{ role: 'user', content: routeTarget.content }] },
             },
           })
         }
