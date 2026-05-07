@@ -551,7 +551,10 @@ function ChatPanel({
             <div key={msg.id} className="flex items-end gap-2 justify-end">
               <div className="max-w-[70%] rounded-xl rounded-br-sm bg-accent px-3.5 py-2.5 dark:shadow-none shadow-sm">
                 <MarkdownContent content={msg.content} light />
-                <p className="text-[10px] text-white/50 mt-1.5 font-mono text-right">{fmtTime(msg.createdAt)}</p>
+                <div className="flex items-center justify-between mt-1">
+                  <button onClick={() => navigator.clipboard.writeText(msg.content)} className="text-[10px] text-ink-4 hover:text-ink-2">Copy</button>
+                  <p className="text-[10px] text-white/50 font-mono">{fmtTime(msg.createdAt)}</p>
+                </div>
               </div>
               <div className="w-6 h-6 rounded-full bg-accent-bg border border-accent-bdr flex items-center justify-center shrink-0">
                 <span className="text-[9px] font-bold text-accent-fg">U</span>
@@ -568,7 +571,10 @@ function ChatPanel({
                 </div>
                 <div className="max-w-[70%] rounded-xl rounded-bl-sm bg-raised border border-line px-3.5 py-2.5 dark:shadow-none shadow-sm">
                   <MarkdownContent content={msg.content} />
-                  <p className="text-[10px] text-ink-3 mt-1.5 font-mono">{fmtTime(msg.createdAt)}</p>
+                  <div className="flex items-center justify-between mt-1">
+                    <button onClick={() => navigator.clipboard.writeText(msg.content)} className="text-[10px] text-ink-4 hover:text-ink-2">Copy</button>
+                    <p className="text-[10px] text-ink-3 font-mono">{fmtTime(msg.createdAt)}</p>
+                  </div>
                 </div>
               </div>
             </div>
