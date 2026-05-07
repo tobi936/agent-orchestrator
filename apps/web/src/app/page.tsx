@@ -148,7 +148,7 @@ function TopBar({ isDark, onToggleDark }: { isDark: boolean; onToggleDark: () =>
         <span className="text-sm font-semibold tracking-tight text-ink">Orchestrator</span>
         <span className="h-3.5 w-px bg-line hidden sm:block" />
         <span className="hidden sm:inline text-[11px] font-medium text-ink-3 px-1.5 py-0.5 bg-hover rounded border border-line">
-          local
+          dev
         </span>
       </div>
       <div className="flex items-center gap-1.5">
