@@ -54,25 +54,25 @@ body {
   background-size: 22px 22px;
 }
 
-/* Sidebar: blauer Ton */
+/* Sidebar: etwas dunkler als bg — kein Farbton */
 .sidebar-panel {
-  background-color: #EAEAF8;
+  background-color: #DAD8D1;
 }
 html.dark .sidebar-panel {
   background-color: #1A1A2E;
 }
 
-/* Inbox/Infra Panel: grüner Ton */
+/* Inbox/Infra Panel: gleich wie Sidebar */
 .inbox-panel {
-  background-color: #E8F2EC;
+  background-color: #DAD8D1;
 }
 html.dark .inbox-panel {
   background-color: #141E18;
 }
 
-/* Chat-Bereich: neutral/hell */
+/* Chat-Bereich: am hellsten — der Hauptarbeitsbereich */
 .chat-bg {
-  background-color: var(--c-raised);
+  background-color: #F5F4F0;
 }
 html.dark .chat-bg {
   background-color: #1F1F23;
