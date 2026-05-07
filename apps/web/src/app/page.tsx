@@ -552,7 +552,7 @@ function ChatPanel({
               <div className="max-w-[70%] rounded-xl rounded-br-sm bg-accent px-3.5 py-2.5 dark:shadow-none shadow-sm">
                 <MarkdownContent content={msg.content} light />
                 <div className="flex items-center justify-between mt-1">
-                  <button onClick={() => navigator.clipboard.writeText(msg.content)} className="text-[10px] text-ink-4 hover:text-ink-2">Copy</button>
+                  <button onClick={() => navigator.clipboard.writeText(msg.content)} className="p-0.5 text-ink-4 hover:text-ink-2" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="w-3 h-3"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
                   <p className="text-[10px] text-white/50 font-mono">{fmtTime(msg.createdAt)}</p>
                 </div>
               </div>
@@ -572,7 +572,7 @@ function ChatPanel({
                 <div className="max-w-[70%] rounded-xl rounded-bl-sm bg-raised border border-line px-3.5 py-2.5 dark:shadow-none shadow-sm">
                   <MarkdownContent content={msg.content} />
                   <div className="flex items-center justify-between mt-1">
-                    <button onClick={() => navigator.clipboard.writeText(msg.content)} className="text-[10px] text-ink-4 hover:text-ink-2">Copy</button>
+                    <button onClick={() => navigator.clipboard.writeText(msg.content)} className="p-0.5 text-ink-4 hover:text-ink-2" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="w-3 h-3"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
                     <p className="text-[10px] text-ink-3 font-mono">{fmtTime(msg.createdAt)}</p>
                   </div>
                 </div>
