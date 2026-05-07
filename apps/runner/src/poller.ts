@@ -65,14 +65,22 @@ async function tick() {
         }
       }
 
-      const history: ChatHistoryMessage[] = task.thread.map((m: { role: string; content: string }) => ({
+      // Build history from thread; last user message is the active prompt
+      const threadMessages = task.thread
+      const lastUserMsg = [...threadMessages].reverse().find((m) => m.role === 'user')
+      const userMessage = lastUserMsg ? lastUserMsg.content : task.content
+      const historyMessages = lastUserMsg
+        ? threadMessages.slice(0, threadMessages.indexOf(lastUserMsg))
+        : threadMessages
+
+      const history: ChatHistoryMessage[] = historyMessages.map((m) => ({
         role: m.role === 'user' ? 'user' : 'assistant',
         content: m.content,
       }))
 
       reply = await provider.chat(
         systemPrompt,
-        task.content,
+        userMessage,
         sandbox ?? null,
         (line) => appendLog(agent.id, line),
         history,
@@ -108,7 +116,7 @@ async function tick() {
         prisma.task.update({ where: { id: task.id }, data: { status: 'PENDING', forHuman: true } }),
       ])
     } else {
-      await prisma.$transaction(async (tx: typeof prisma) => {
+      await prisma.$transaction(async (tx) => {
         await tx.taskMessage.create({ data: { taskId: task.id, role: 'agent', content: reply } })
         await tx.task.update({ where: { id: task.id }, data: { status: 'DONE' } })
         if (routeTarget) {
