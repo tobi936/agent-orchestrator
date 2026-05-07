@@ -59,6 +59,27 @@ async function runStartup(
         onStderr: (d) => appendLog(agentId, d),
       })
 
+      const githubToken = process.env.GITHUB_TOKEN
+      if (githubToken) {
+        // Use provided token — enables private repos, push, full git access
+        appendLog(agentId, `[${ts()}] Configuring git credentials from GITHUB_TOKEN…`)
+        await sandbox.commands.run(
+          `git config --global credential.helper store && ` +
+          `echo "https://oauth2:${githubToken}@github.com" > ~/.git-credentials && ` +
+          `git config --global user.email "agent@agent-orchestrator" && ` +
+          `git config --global user.name "Agent"`,
+          { timeoutMs: 10_000 },
+        )
+      } else {
+        // No token — configure a generic identity so commits work on public repos
+        appendLog(agentId, `[${ts()}] No GITHUB_TOKEN set — configuring anonymous git identity…`)
+        await sandbox.commands.run(
+          `git config --global user.email "agent@agent-orchestrator" && ` +
+          `git config --global user.name "Agent"`,
+          { timeoutMs: 10_000 },
+        )
+      }
+
       await sandbox.commands.run('mkdir -p /workspace', { timeoutMs: 10_000 })
       appendLog(agentId, `[${ts()}] Cloning ${repoUrl}…`)
       const clone = await sandbox.commands.run(`git clone --depth=1 "${repoUrl}" /workspace`, {
