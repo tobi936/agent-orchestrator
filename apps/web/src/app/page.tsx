@@ -135,7 +135,7 @@ function StatusDot({ status }: { status: AgentStatus }) {
 
 function TopBar({ isDark, onToggleDark }: { isDark: boolean; onToggleDark: () => void }) {
   return (
-    <header className="h-11 flex items-center justify-between px-4 border-b border-line bg-surface shrink-0">
+    <header className="h-11 flex items-center justify-between px-4 border-b border-line bg-raised shrink-0">
       <div className="flex items-center gap-2.5">
         <div className="w-6 h-6 rounded-[5px] bg-accent flex items-center justify-center">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -194,7 +194,7 @@ function AgentsSidebar({
   })
 
   return (
-    <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex w-full md:w-[240px] shrink-0 flex-col border-r border-line bg-surface overflow-hidden`}>
+    <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex w-full md:w-[240px] shrink-0 flex-col border-r border-line sidebar-panel overflow-hidden`}>
       <div className="px-3 pt-3 pb-2 shrink-0">
         <div className="flex items-center justify-between mb-2.5">
           <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Agents</span>
@@ -498,7 +498,7 @@ function ChatPanel({
 
   return (
     <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex flex-1 min-w-0 flex-col border-r border-line`}>
-      <div className="h-11 px-4 flex items-center justify-between border-b border-line shrink-0 bg-surface">
+      <div className="h-11 px-4 flex items-center justify-between border-b border-line shrink-0 bg-raised">
         <div className="flex items-center gap-2">
           <StatusDot status={agent.status} />
           <span className="text-sm font-semibold text-ink">{agent.name}</span>
@@ -533,7 +533,7 @@ function ChatPanel({
         </div>
       </div>
 
-      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 relative">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 relative chat-bg">
         {messages.length === 0 && toolEvents.length === 0 && (
           <div className="flex items-center justify-center h-full">
             <p className="text-xs text-ink-3">
@@ -575,7 +575,7 @@ function ChatPanel({
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="px-4 py-3 shrink-0 border-t border-line bg-surface">
+      <div className="px-4 py-3 shrink-0 border-t border-line bg-raised">
         <form onSubmit={handleSubmit} className="flex gap-2">
           <input
             type="text"
@@ -682,7 +682,7 @@ function InboxOutboxPanel({
   const selectedMsg = messages.find((m) => m.id === selectedId) ?? null
 
   return (
-    <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex w-full md:w-[320px] shrink-0 flex-col bg-surface overflow-hidden`}>
+    <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex w-full md:w-[320px] shrink-0 flex-col inbox-panel overflow-hidden`}>
       <div className="h-11 flex items-center gap-1 px-3 border-b border-line shrink-0">
         {(['inbox', 'outbox', 'infra'] as const).map((t) => (
           <button
@@ -898,7 +898,7 @@ function StatusBar({ agents }: { agents: Agent[] }) {
   ]
 
   return (
-    <div className="h-7 hidden md:flex items-center px-4 border-t border-line bg-surface shrink-0 gap-5">
+    <div className="h-7 hidden md:flex items-center px-4 border-t border-line bg-raised shrink-0 gap-5">
       <div className="flex items-center gap-5 flex-1">
         {items.map((item) => (
           <div key={item.label} className="flex items-center gap-1.5">
@@ -960,7 +960,7 @@ function MobileNav({
   ]
 
   return (
-    <nav className="md:hidden flex items-center border-t border-line bg-surface shrink-0 h-14">
+    <nav className="md:hidden flex items-center border-t border-line bg-raised shrink-0 h-14">
       {tabs.map((tab) => (
         <button
           key={tab.id}

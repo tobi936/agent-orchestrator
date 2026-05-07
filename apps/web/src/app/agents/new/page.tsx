@@ -59,7 +59,7 @@
    return (
      <div className="flex flex-col h-screen overflow-hidden">
        {/* TopBar */}
-       <header className="h-11 flex items-center justify-between px-4 border-b border-line bg-surface shrink-0">
+       <header className="h-11 flex items-center justify-between px-4 border-b border-line bg-raised shrink-0">
          <div className="flex items-center gap-2.5">
            <div className="w-6 h-6 rounded-[5px] bg-accent flex items-center justify-center">
              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
