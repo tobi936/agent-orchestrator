@@ -115,6 +115,41 @@ function MarkdownContent({ content, light }: { content: string; light?: boolean 
   )
 }
 
+// ─── CopyButton ──────────────────────────────────────────────────────────────
+
+function CopyButton({ text, light }: { text: string; light?: boolean }) {
+  const [copied, setCopied] = useState(false)
+  function handleCopy() {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+  return (
+    <button
+      onClick={handleCopy}
+      title="Copy"
+      className={`mt-1 flex items-center gap-1 text-[10px] font-mono transition-colors ${
+        light
+          ? 'text-white/40 hover:text-white/70'
+          : 'text-ink-4 hover:text-ink-2'
+      }`}
+    >
+      {copied ? (
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M1.5 5.5l2.5 2.5 5-5" />
+        </svg>
+      ) : (
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="4" y="4" width="6" height="6" rx="1" />
+          <path d="M7 4V2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h2" />
+        </svg>
+      )}
+      {copied ? 'copied' : 'copy'}
+    </button>
+  )
+}
+
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
 function MoonIcon() {
@@ -454,11 +489,14 @@ function TaskThread({
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 chat-bg">
         {/* Initial task */}
         <div className="flex items-end gap-2 justify-end">
-          <div className="max-w-[70%] rounded-xl rounded-br-sm bg-accent px-3.5 py-2.5 shadow-sm dark:shadow-none">
-            <p className="text-[10px] text-white/60 mb-1 font-mono">
-              {task.fromAgent ? `from ${task.fromAgent.name}` : 'from human'} · {fmtTime(task.createdAt)}
-            </p>
-            <MarkdownContent content={task.content} light />
+          <div className="max-w-[70%] flex flex-col items-end">
+            <div className="rounded-xl rounded-br-sm bg-accent px-3.5 py-2.5 shadow-sm dark:shadow-none">
+              <p className="text-[10px] text-white/60 mb-1 font-mono">
+                {task.fromAgent ? `from ${task.fromAgent.name}` : 'from human'} · {fmtTime(task.createdAt)}
+              </p>
+              <MarkdownContent content={task.content} light />
+            </div>
+            <CopyButton text={task.content} light />
           </div>
           <div className="w-6 h-6 rounded-full bg-accent-bg border border-accent-bdr flex items-center justify-center shrink-0">
             <span className="text-[9px] font-bold text-accent-fg">{task.fromAgent ? 'A' : 'U'}</span>
@@ -469,9 +507,12 @@ function TaskThread({
         {(task.thread ?? []).map((msg) =>
           msg.role === 'user' ? (
             <div key={msg.id} className="flex items-end gap-2 justify-end">
-              <div className="max-w-[70%] rounded-xl rounded-br-sm bg-accent px-3.5 py-2.5 shadow-sm dark:shadow-none">
-                <MarkdownContent content={msg.content} light />
-                <p className="text-[10px] text-white/50 font-mono mt-1">{fmtTime(msg.createdAt)}</p>
+              <div className="max-w-[70%] flex flex-col items-end">
+                <div className="rounded-xl rounded-br-sm bg-accent px-3.5 py-2.5 shadow-sm dark:shadow-none">
+                  <MarkdownContent content={msg.content} light />
+                  <p className="text-[10px] text-white/50 font-mono mt-1">{fmtTime(msg.createdAt)}</p>
+                </div>
+                <CopyButton text={msg.content} light />
               </div>
               <div className="w-6 h-6 rounded-full bg-accent-bg border border-accent-bdr flex items-center justify-center shrink-0">
                 <span className="text-[9px] font-bold text-accent-fg">U</span>
@@ -482,9 +523,12 @@ function TaskThread({
               <div className="w-6 h-6 rounded-full bg-ink flex items-center justify-center shrink-0">
                 <span className="text-[9px] font-bold text-bg">A</span>
               </div>
-              <div className="max-w-[70%] rounded-xl rounded-bl-sm bg-raised border border-line px-3.5 py-2.5 shadow-sm dark:shadow-none">
-                <MarkdownContent content={msg.content} />
-                <p className="text-[10px] text-ink-3 font-mono mt-1">{fmtTime(msg.createdAt)}</p>
+              <div className="max-w-[70%] flex flex-col">
+                <div className="rounded-xl rounded-bl-sm bg-raised border border-line px-3.5 py-2.5 shadow-sm dark:shadow-none">
+                  <MarkdownContent content={msg.content} />
+                  <p className="text-[10px] text-ink-3 font-mono mt-1">{fmtTime(msg.createdAt)}</p>
+                </div>
+                <CopyButton text={msg.content} />
               </div>
             </div>
           )
