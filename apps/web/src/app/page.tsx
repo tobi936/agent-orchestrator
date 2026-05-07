@@ -769,6 +769,7 @@ function TaskBacklogPanel({
   outboxTasks,
   agentsRunning,
   agentsTotal,
+  agents,
   selectedAgent,
   onAgentUpdated,
   mobileVisible,
@@ -782,6 +783,7 @@ function TaskBacklogPanel({
   outboxTasks: Task[]
   agentsRunning: number
   agentsTotal: number
+  agents: Agent[]
   selectedAgent: Agent | null
   onAgentUpdated: (agent: Agent) => void
   mobileVisible: boolean
@@ -853,10 +855,26 @@ function TaskBacklogPanel({
         <div className="flex-1 overflow-y-auto p-3 space-y-5">
           <section>
             <p className="text-[9px] font-semibold text-ink-3 uppercase tracking-widest mb-2.5">Agents</p>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] text-ink-2">Running</span>
               <span className="text-[11px] font-mono text-ink">{agentsRunning}/{agentsTotal}</span>
             </div>
+            {agents.filter((a) => a.id !== selectedAgent?.id).map((a) => (
+              <div key={a.id} className="flex items-center gap-2 py-1.5 border-t border-line">
+                <StatusDot status={a.status} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-medium text-ink truncate">{a.name}</p>
+                  <p className="text-[10px] text-ink-4 truncate">{a.systemPrompt.slice(0, 50)}</p>
+                </div>
+                <button
+                  onClick={() => navigator.clipboard.writeText(a.id)}
+                  title="Copy agent ID"
+                  className="text-[9px] font-mono text-ink-4 hover:text-accent transition-colors shrink-0 px-1 py-0.5 rounded hover:bg-accent-bg"
+                >
+                  copy id
+                </button>
+              </div>
+            ))}
           </section>
           {selectedAgent && (
             <section>
@@ -1235,6 +1253,7 @@ export default function Dashboard() {
           outboxTasks={outboxTasks}
           agentsRunning={agents.filter((a) => a.status === 'RUNNING').length}
           agentsTotal={agents.length}
+          agents={agents}
           selectedAgent={selectedAgent}
           onAgentUpdated={(updated) => setAgents((prev) => prev.map((a) => a.id === updated.id ? updated : a))}
           mobileVisible={mobilePanel === 'tasks'}

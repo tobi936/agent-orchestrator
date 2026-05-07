@@ -32,16 +32,19 @@ Use route_task when your work needs to be verified or continued by another agent
 Use ask_human when you need clarification or approval from the human before proceeding.`
 
 async function tick() {
-  const tasks = await prisma.task.findMany({
-    where: { status: 'PENDING', forHuman: false, agent: { status: 'RUNNING' } },
-    include: {
-      agent: {
-        select: { id: true, systemPrompt: true, name: true, provider: true, model: true, repoUrl: true, maxToolIterations: true },
+  const [tasks, allAgents] = await Promise.all([
+    prisma.task.findMany({
+      where: { status: 'PENDING', forHuman: false, agent: { status: 'RUNNING' } },
+      include: {
+        agent: {
+          select: { id: true, systemPrompt: true, name: true, provider: true, model: true, repoUrl: true, maxToolIterations: true },
+        },
+        thread: { orderBy: { createdAt: 'asc' } },
       },
-      thread: { orderBy: { createdAt: 'asc' } },
-    },
-    orderBy: { createdAt: 'asc' },
-  })
+      orderBy: { createdAt: 'asc' },
+    }),
+    prisma.agent.findMany({ select: { id: true, name: true, systemPrompt: true, status: true } }),
+  ])
 
   for (const task of tasks) {
     const { agent } = task
@@ -57,7 +60,12 @@ async function tick() {
       const provider = createProvider({ provider: agent.provider, model: agent.model })
       const sandbox = sandboxes.get(agent.id)
 
-      let systemPrompt = agent.systemPrompt + ORCHESTRATION_INSTRUCTIONS
+      const otherAgents = allAgents.filter((a) => a.id !== agent.id)
+      const agentList = otherAgents.length > 0
+        ? `\n\n---\nAvailable agents you can delegate tasks to via route_task:\n${otherAgents.map((a) => `- ${a.name} (id: ${a.id}) — ${a.systemPrompt.slice(0, 100)}`).join('\n')}`
+        : ''
+
+      let systemPrompt = agent.systemPrompt + agentList + ORCHESTRATION_INSTRUCTIONS
       if (sandbox) {
         systemPrompt += TOOL_INSTRUCTIONS
         if (agent.repoUrl) {
