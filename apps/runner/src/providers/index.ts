@@ -120,7 +120,7 @@ async function runToolLoop(
         result = `Tool ${tc.function.name} not available without sandbox`
       }
 
-      const ok = !result.startsWith('Error')
+      const ok = !result.startsWith('Error') && !result.startsWith('Unknown tool') && !result.startsWith('Tool ')
       log?.(`[TOOL]${JSON.stringify({ type: 'result', name: tc.function.name, ok, result: result.slice(0, 2000) })}`)
       messages.push({ role: 'tool', tool_call_id: tc.id, content: result } as Message)
     }
@@ -203,7 +203,7 @@ async function runAnthropicToolLoop(
         result = `Tool ${block.name} not available without sandbox`
       }
 
-      const ok = !result.startsWith('Error')
+      const ok = !result.startsWith('Error') && !result.startsWith('Unknown tool') && !result.startsWith('Tool ')
       log?.(`[TOOL]${JSON.stringify({ type: 'result', name: block.name, ok, result: result.slice(0, 2000) })}`)
       toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result } as unknown as AnthropicContent)
     }
