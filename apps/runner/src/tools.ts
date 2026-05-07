@@ -1,5 +1,29 @@
 import { Sandbox } from 'e2b'
 
+export class FileTracker {
+  private readCache = new Map<string, string>()
+
+  onRead(path: string, content: string) {
+    this.readCache.set(path, content)
+  }
+
+  // Returns cached content if file is unchanged, null if re-read is needed
+  getCached(path: string, currentContent: string): string | null {
+    const cached = this.readCache.get(path)
+    if (cached !== undefined && cached === currentContent) return cached
+    return null
+  }
+
+  hasRead(path: string): boolean {
+    return this.readCache.has(path)
+  }
+
+  // After write, invalidate cache so next write requires re-read
+  onWrite(path: string) {
+    this.readCache.delete(path)
+  }
+}
+
 export const sandboxTools = [
   {
     type: 'function' as const,
@@ -57,6 +81,109 @@ export const sandboxTools = [
           command: { type: 'string', description: 'The shell command to execute' },
         },
         required: ['command'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'make_directory',
+      description: 'Create a directory (and all parent directories) in the sandbox.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Absolute path of the directory to create' },
+        },
+        required: ['path'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'list_directory',
+      description: 'List files and directories inside a directory (non-recursive).',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Absolute path to the directory' },
+        },
+        required: ['path'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'copy_file',
+      description: 'Copy a file to a new location in the sandbox.',
+      parameters: {
+        type: 'object',
+        properties: {
+          source: { type: 'string', description: 'Absolute path to the source file' },
+          destination: { type: 'string', description: 'Absolute path to the destination' },
+        },
+        required: ['source', 'destination'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'delete_file',
+      description: 'Delete a file in the sandbox.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Absolute path to the file to delete' },
+        },
+        required: ['path'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'move_file',
+      description: 'Move or rename a file in the sandbox.',
+      parameters: {
+        type: 'object',
+        properties: {
+          source: { type: 'string', description: 'Absolute path to the source file' },
+          destination: { type: 'string', description: 'Absolute path to the destination' },
+        },
+        required: ['source', 'destination'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'search_files',
+      description: 'Search for a text pattern across files in a directory.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Absolute path to the directory to search in' },
+          pattern: { type: 'string', description: 'Text or regex pattern to search for' },
+          file_glob: { type: 'string', description: 'File name pattern to restrict search, e.g. "*.ts" (optional)' },
+        },
+        required: ['path', 'pattern'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'print_tree',
+      description: 'Print the directory tree of a path in the sandbox.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Absolute path to the directory (defaults to /)' },
+          depth: { type: 'number', description: 'Maximum depth to traverse (default: 3)' },
+        },
+        required: [],
       },
     },
   },
@@ -136,12 +263,25 @@ export async function executeSandboxTool(
   name: string,
   input: Record<string, string>,
   sandbox: Sandbox,
+  tracker?: FileTracker,
 ): Promise<string> {
   try {
-    if (name === 'read_file') return await sandbox.files.read(input.path)
+    if (name === 'read_file') {
+      const current = await sandbox.files.read(input.path)
+      if (tracker) {
+        const cached = tracker.getCached(input.path, current)
+        if (cached !== null) return cached
+        tracker.onRead(input.path, current)
+      }
+      return current
+    }
 
     if (name === 'write_file') {
+      if (tracker && !tracker.hasRead(input.path)) {
+        return `Error: you must read_file("${input.path}") before writing it`
+      }
       await sandbox.files.write(input.path, input.content)
+      tracker?.onWrite(input.path)
       return `Written: ${input.path}`
     }
 
@@ -149,6 +289,7 @@ export async function executeSandboxTool(
       const content = await sandbox.files.read(input.path)
       if (!content.includes(input.old_string)) return `Error: old_string not found in ${input.path}`
       await sandbox.files.write(input.path, content.replace(input.old_string, input.new_string))
+      tracker?.onWrite(input.path)
       return `Edited: ${input.path}`
     }
 
@@ -165,6 +306,60 @@ export async function executeSandboxTool(
         return `Error (exit ${result.exitCode}): ${out || '(no output)'}`
       }
       return out || '(no output)'
+    }
+
+    if (name === 'make_directory') {
+      await sandbox.commands.run(`mkdir -p "${input.path}"`)
+      return `Created: ${input.path}`
+    }
+
+    if (name === 'list_directory') {
+      const entries = await sandbox.files.list(input.path)
+      return entries.map((e) => `${e.type === 'dir' ? 'd' : 'f'} ${e.name}`).join('\n') || '(empty)'
+    }
+
+    if (name === 'copy_file') {
+      await sandbox.commands.run(`cp "${input.source}" "${input.destination}"`)
+      return `Copied: ${input.source} → ${input.destination}`
+    }
+
+    if (name === 'delete_file') {
+      await sandbox.commands.run(`rm -f ${input.path}`)
+      return `Deleted: ${input.path}`
+    }
+
+    if (name === 'move_file') {
+      await sandbox.commands.run(`mv ${input.source} ${input.destination}`)
+      return `Moved: ${input.source} → ${input.destination}`
+    }
+
+    if (name === 'search_files') {
+      const glob = input.file_glob ? `--include="${input.file_glob}"` : ''
+      let stdout = ''
+      let stderr = ''
+      await sandbox.commands.run(`grep -rn ${glob} -e "${input.pattern}" "${input.path}" 2>/dev/null || true`, {
+        timeoutMs: 30_000,
+        onStdout: (d) => { stdout += d },
+        onStderr: (d) => { stderr += d },
+      })
+      return stdout.trim() || '(no matches)'
+    }
+
+    if (name === 'print_tree') {
+      const dir = input.path || '/'
+      const depth = Number(input.depth) || 3
+      let stdout = ''
+      let stderr = ''
+      const result = await sandbox.commands.run(`find ${dir} -maxdepth ${depth} | sort | awk 'NR>1{gsub(/[^/]*\//,"  ",$0); sub(/  /,"",$0)} {print}'`, {
+        timeoutMs: 30_000,
+        onStdout: (d) => { stdout += d },
+        onStderr: (d) => { stderr += d },
+      })
+      const out = (stdout + (stderr ? `\n[stderr] ${stderr}` : '')).trim()
+      if (result.exitCode !== 0) {
+        return `Error (exit ${result.exitCode}): ${out || '(no output)'}`
+      }
+      return out || '(empty)'
     }
 
     return `Unknown tool: ${name}`
