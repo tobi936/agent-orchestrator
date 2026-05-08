@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
@@ -40,10 +40,25 @@ function Row({ label, description, children }: { label: string; description?: st
   )
 }
 
+interface OllamaKeyStatus {
+  total: number
+  current: number
+  maskedKeys: string[]
+}
+
 export default function SettingsPage() {
   const router = useRouter()
   const [autoStart, setAutoStart] = useState(true)
   const [theme, setTheme] = useState<'system' | 'light' | 'dark'>('system')
+  const [ollamaKeys, setOllamaKeys] = useState<OllamaKeyStatus | null>(null)
+  const [switchingKey, setSwitchingKey] = useState(false)
+
+  const fetchOllamaKeys = useCallback(async () => {
+    try {
+      const res = await fetch('/api/ollama-keys')
+      if (res.ok) setOllamaKeys(await res.json())
+    } catch {}
+  }, [])
 
   useEffect(() => {
     try {
@@ -53,7 +68,22 @@ export default function SettingsPage() {
       if (storedTheme === 'dark' || storedTheme === 'light') setTheme(storedTheme)
       else setTheme('system')
     } catch {}
-  }, [])
+    fetchOllamaKeys()
+  }, [fetchOllamaKeys])
+
+  async function handleSwitchKey(index?: number) {
+    setSwitchingKey(true)
+    try {
+      const res = await fetch('/api/ollama-keys/switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(index !== undefined ? { index } : {}),
+      })
+      if (res.ok) setOllamaKeys(await res.json())
+    } finally {
+      setSwitchingKey(false)
+    }
+  }
 
   function handleAutoStart(val: boolean) {
     setAutoStart(val)
@@ -115,6 +145,44 @@ export default function SettingsPage() {
               <Toggle value={autoStart} onChange={handleAutoStart} />
             </Row>
           </Section>
+
+          {ollamaKeys && ollamaKeys.total > 0 && (
+            <Section title="Ollama API Keys">
+              <Row
+                label="Active key"
+                description={`Key ${ollamaKeys.current + 1} of ${ollamaKeys.total}: ${ollamaKeys.maskedKeys[ollamaKeys.current] ?? '—'}`}
+              >
+                {ollamaKeys.total > 1 && (
+                  <button
+                    onClick={() => handleSwitchKey()}
+                    disabled={switchingKey}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--c-accent)] text-white hover:opacity-80 transition-opacity disabled:opacity-40"
+                  >
+                    {switchingKey ? 'Switching…' : 'Switch key'}
+                  </button>
+                )}
+              </Row>
+              {ollamaKeys.total > 1 && (
+                <div className="px-5 py-3 flex flex-wrap gap-2">
+                  {ollamaKeys.maskedKeys.map((key, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleSwitchKey(i)}
+                      disabled={switchingKey || i === ollamaKeys.current}
+                      className={`px-2.5 py-1 rounded-md text-xs font-mono transition-colors border ${
+                        i === ollamaKeys.current
+                          ? 'border-[var(--c-accent)] text-[var(--c-accent)] bg-[var(--c-accent)]/10 cursor-default'
+                          : 'border-[var(--c-line)] text-[var(--c-ink-3)] hover:text-[var(--c-ink)] hover:border-[var(--c-ink-3)] disabled:opacity-40'
+                      }`}
+                    >
+                      {i === ollamaKeys.current && <span className="mr-1">&#10003;</span>}
+                      Key {i + 1}: {key}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Section>
+          )}
 
           <Section title="About">
             <Row label="Version">
