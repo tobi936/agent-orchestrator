@@ -5,6 +5,7 @@ import { startPoller } from './poller'
 import { appendLog, getBuffer, onLog, offLog, clearBuffer } from './logs'
 import { sandboxes } from './sandboxes'
 import { startAgent } from './start'
+import { getKeyStatus, switchToNextKey, switchToKey } from './ollamaKeys'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
@@ -104,6 +105,19 @@ app.post('/agents/:id/restart', async (req, res) => {
   const result = await startAgent(req.params.id)
   if (!result.ok) return res.status(500).json({ error: result.error })
   return res.json(await prisma.agent.findUnique({ where: { id: req.params.id } }))
+})
+
+// ── Ollama key management ─────────────────────────────────────────────────────
+app.get('/ollama-keys', (_req, res) => res.json(getKeyStatus()))
+
+app.post('/ollama-keys/switch', (req, res) => {
+  const { index } = req.body as { index?: number }
+  if (index !== undefined) {
+    const ok = switchToKey(index)
+    return res.json({ ok, ...getKeyStatus() })
+  }
+  const ok = switchToNextKey()
+  return res.json({ ok, ...getKeyStatus() })
 })
 
 // ── Health check ──────────────────────────────────────────────────────────────

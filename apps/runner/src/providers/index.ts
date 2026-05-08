@@ -1,5 +1,6 @@
 import { Sandbox } from 'e2b'
 import { sandboxTools, orchestrationTools, ghTools, executeSandboxTool, executeGhTool } from '../tools'
+import { getCurrentKey, switchToNextKey, getTotalKeys } from '../ollamaKeys'
 
 export interface ChatHistoryMessage {
   role: 'user' | 'assistant'
@@ -60,6 +61,29 @@ async function fetchWithRetry(url: string, init: RequestInit, maxRetries = 3): P
   throw new Error('Max retries exceeded')
 }
 
+async function fetchWithOllamaKeyRotation(url: string, init: RequestInit): Promise<Response> {
+  const maxAttempts = Math.max(getTotalKeys(), 1)
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const currentKey = getCurrentKey()
+    const headers = {
+      ...(init.headers as Record<string, string>),
+      Authorization: `Bearer ${currentKey}`,
+    }
+    const res = await fetch(url, { ...init, headers })
+    if (res.ok) return res
+    if (res.status === 429 && getTotalKeys() > 1) {
+      const switched = switchToNextKey()
+      if (switched) continue
+    }
+    if (res.status >= 500 || res.status === 429) {
+      await sleep(1000 * Math.pow(2, attempt))
+      continue
+    }
+    throw new Error(`${res.status}: ${await res.text()}`)
+  }
+  throw new Error('All Ollama API keys exhausted')
+}
+
 async function openAICompatChat(
   baseURL: string,
   apiKey: string,
@@ -67,15 +91,21 @@ async function openAICompatChat(
   messages: Message[],
   toolList: unknown[],
   extraHeaders: Record<string, string> = {},
+  useKeyRotation = false,
 ): Promise<{ finish_reason: string; message: Message }> {
   const body: Record<string, unknown> = { model, messages }
   if (toolList.length > 0) body.tools = toolList
 
-  const res = await fetchWithRetry(`${baseURL}/chat/completions`, {
+  const init: RequestInit = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, ...extraHeaders },
     body: JSON.stringify(body),
-  })
+  }
+
+  const res = useKeyRotation
+    ? await fetchWithOllamaKeyRotation(`${baseURL}/chat/completions`, init)
+    : await fetchWithRetry(`${baseURL}/chat/completions`, init)
+
   const data = await res.json() as { choices: { finish_reason: string; message: Message }[] }
   return data.choices[0]
 }
@@ -98,6 +128,7 @@ async function runToolLoop(
   maxToolIterations = 50,
   customToolHandler?: CustomToolHandler,
   allowedTools?: string[],
+  useKeyRotation = false,
 ): Promise<string> {
   const messages: Message[] = [
     { role: 'system', content: systemPrompt },
@@ -113,7 +144,7 @@ async function runToolLoop(
 
   for (let i = 0; i < maxToolIterations; i++) {
     const { finish_reason, message } = await openAICompatChat(
-      baseURL, apiKey, model, messages, toolList, extraHeaders,
+      baseURL, apiKey, model, messages, toolList, extraHeaders, useKeyRotation,
     )
     messages.push(message)
 
@@ -239,7 +270,7 @@ async function runAnthropicToolLoop(
 class OllamaProvider implements AIProvider {
   constructor(private model: string) {}
   chat(systemPrompt: string, userMessage: string, sandbox: Sandbox | null, log?: (line: string) => void, history?: ChatHistoryMessage[], maxToolIterations?: number, customToolHandler?: CustomToolHandler, allowedTools?: string[]) {
-    return runToolLoop('https://ollama.com/v1', process.env.OLLAMA_API_KEY ?? '', this.model, systemPrompt, userMessage, sandbox, {}, log, history, maxToolIterations, customToolHandler, allowedTools)
+    return runToolLoop('https://ollama.com/v1', getCurrentKey(), this.model, systemPrompt, userMessage, sandbox, {}, log, history, maxToolIterations, customToolHandler, allowedTools, true)
   }
 }
 
