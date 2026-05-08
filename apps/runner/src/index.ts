@@ -80,7 +80,7 @@ app.get('/agents/:id/metrics', async (req, res) => {
   const sandbox = sandboxes.get(id)
   if (sandbox) {
     try {
-      const m = await (sandbox as { getMetrics?: () => Promise<{ cpuPct: number; memUsedMiB: number }[]> }).getMetrics?.()
+      const m = await (sandbox as unknown as { getMetrics?: () => Promise<{ cpuPct: number; memUsedMiB: number }[]> }).getMetrics?.()
       if (m && m.length > 0) sandboxMetrics = { cpu: m[0].cpuPct, mem: m[0].memUsedMiB }
     } catch { /* telemetry not available */ }
   }
