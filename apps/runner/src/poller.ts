@@ -196,7 +196,9 @@ async function tick() {
       reply = `[Error] ${error}`
     }
 
-    if (askHumanQuestion) {
+    const pauseForHuman = askHumanQuestion || reply === '[Max tool iterations reached]'
+
+    if (pauseForHuman) {
       await prisma.$transaction([
         prisma.taskMessage.create({ data: { taskId: task.id, role: 'agent', content: reply } }),
         prisma.task.update({ where: { id: task.id }, data: { status: 'PENDING', forHuman: true } }),
