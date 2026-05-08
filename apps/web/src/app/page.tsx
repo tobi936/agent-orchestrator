@@ -1262,16 +1262,15 @@ export default function Dashboard() {
 
   useEffect(() => {
     setIsDark(document.documentElement.classList.contains('dark'))
-    try {
-      const stored = localStorage.getItem('autoStart')
-      if (stored !== null) setAutoStart(stored !== 'false')
-    } catch {}
+    fetch('/api/settings').then(r => r.ok ? r.json() : null).then(data => {
+      if (data) setAutoStart(data.autoStart)
+    }).catch(() => {})
   }, [])
 
   function toggleAutoStart() {
     setAutoStart((prev) => {
       const next = !prev
-      try { localStorage.setItem('autoStart', String(next)) } catch {}
+      fetch('/api/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autoStart: next }) }).catch(() => {})
       return next
     })
   }

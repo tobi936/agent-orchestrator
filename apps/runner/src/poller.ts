@@ -78,18 +78,23 @@ async function tick() {
   ])
 
   // Auto-start any agents that have pending tasks but are currently stopped
-  const agentsToStart = new Set<string>()
-  for (const t of tasks) {
-    if (t.agent.status !== 'RUNNING') {
-      agentsToStart.add(t.agent.id)
+  const autoStartSetting = await prisma.systemSetting.findUnique({ where: { key: 'autoStart' } })
+  const autoStartEnabled = autoStartSetting ? autoStartSetting.value === 'true' : true
+
+  if (autoStartEnabled) {
+    const agentsToStart = new Set<string>()
+    for (const t of tasks) {
+      if (t.agent.status !== 'RUNNING') {
+        agentsToStart.add(t.agent.id)
+      }
     }
-  }
-  for (const aid of agentsToStart) {
-    const startResult = await startAgent(aid)
-    if (startResult.ok) {
-      appendLog(aid, `[${new Date().toISOString()}] Auto-started agent (via pending task)`)
-    } else {
-      appendLog(aid, `[${new Date().toISOString()}] Auto-start failed: ${startResult.error}`)
+    for (const aid of agentsToStart) {
+      const startResult = await startAgent(aid)
+      if (startResult.ok) {
+        appendLog(aid, `[${new Date().toISOString()}] Auto-started agent (via pending task)`)
+      } else {
+        appendLog(aid, `[${new Date().toISOString()}] Auto-start failed: ${startResult.error}`)
+      }
     }
   }
 
@@ -237,22 +242,28 @@ async function tick() {
       })
     }
   }
-  // Auto-stop agents that are running but have no pending tasks
-  for (const a of allAgents) {
-    if (a.status === 'RUNNING' && !sandboxes.has(a.id)) {
-      // No sandbox means already stopped
-      continue
-    }
-    if (a.status === 'RUNNING') {
-      const pending = await prisma.task.count({ where: { agentId: a.id, status: 'PENDING', forHuman: false } })
-      if (pending === 0) {
-        const sandbox = sandboxes.get(a.id)
-        if (sandbox) {
-          await sandbox.kill().catch(() => {})
-          sandboxes.delete(a.id)
+  // Auto-stop agents that are running but have no pending or in-progress tasks
+  const autoStopSetting = await prisma.systemSetting.findUnique({ where: { key: 'autoStop' } })
+  const autoStopEnabled = autoStopSetting ? autoStopSetting.value === 'true' : true
+
+  if (autoStopEnabled) {
+    for (const a of allAgents) {
+      if (a.status === 'RUNNING' && !sandboxes.has(a.id)) {
+        continue
+      }
+      if (a.status === 'RUNNING') {
+        const active = await prisma.task.count({
+          where: { agentId: a.id, status: { in: ['PENDING', 'IN_PROGRESS'] }, forHuman: false },
+        })
+        if (active === 0) {
+          const sandbox = sandboxes.get(a.id)
+          if (sandbox) {
+            await sandbox.kill().catch(() => {})
+            sandboxes.delete(a.id)
+          }
+          await prisma.agent.update({ where: { id: a.id }, data: { status: 'STOPPED' } })
+          appendLog(a.id, `[${new Date().toISOString()}] Auto-stopped idle agent`)
         }
-        await prisma.agent.update({ where: { id: a.id }, data: { status: 'STOPPED' } })
-        appendLog(a.id, `[${new Date().toISOString()}] Auto-stopped idle agent`)
       }
     }
   }
