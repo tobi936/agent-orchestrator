@@ -109,7 +109,17 @@ app.post('/agents/:id/restart', async (req, res) => {
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ ok: true }))
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`[runner] Listening on http://localhost:${PORT}`)
+
+  // Reset any tasks stuck IN_PROGRESS from a previous crashed/restarted runner
+  const stuck = await prisma.task.updateMany({
+    where: { status: 'IN_PROGRESS' },
+    data: { status: 'PENDING' },
+  })
+  if (stuck.count > 0) {
+    console.log(`[runner] Reset ${stuck.count} stuck IN_PROGRESS task(s) to PENDING`)
+  }
+
   startPoller()
 })
