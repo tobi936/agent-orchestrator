@@ -68,7 +68,7 @@ async function tick() {
       where: { status: 'PENDING', forHuman: false },
       include: {
         agent: {
-          select: { id: true, systemPrompt: true, name: true, provider: true, model: true, repoUrl: true, maxToolIterations: true, allowedTools: true },
+          select: { id: true, systemPrompt: true, name: true, provider: true, model: true, repoUrl: true, maxToolIterations: true, allowedTools: true, status: true },
         },
         thread: { orderBy: { createdAt: 'asc' } },
       },
