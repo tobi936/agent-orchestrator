@@ -114,13 +114,15 @@ Für lokale Entwicklung kann `docker-compose.yml` für Postgres verwendet werden
 | `DIRECT_URL` | web (Migrationen) | Direkter Connection String (Neon Direct-URL für `prisma db push`) |
 | `RUNNER_URL` | web | URL des Runner-Services (Fly.io URL in Prod) |
 | `PORT` | runner | HTTP Port (default 3001 lokal, 8080 auf Fly.io) |
-| `PROVIDER` | runner | AI Provider: `ollama` \| `anthropic` \| `openai` |
+| `PROVIDER` | runner | AI Provider: `ollama` \| `anthropic` \| `openai` \| `gemini` |
 | `OLLAMA_API_KEY` | runner | Ollama Cloud API Key |
 | `OLLAMA_MODEL` | runner | z.B. `llama3.2` |
 | `ANTHROPIC_API_KEY` | runner | Anthropic API Key |
 | `ANTHROPIC_MODEL` | runner | z.B. `claude-haiku-4-5-20251001` |
 | `OPENAI_API_KEY` | runner | OpenAI API Key |
 | `OPENAI_MODEL` | runner | z.B. `gpt-4o-mini` |
+| `GEMINI_API_KEY` | runner | Google Gemini API Key |
+| `GEMINI_MODEL` | runner | z.B. `gemini-2.0-flash` |
 | `E2B_API_KEY` | runner | E2B API Key für Sandbox-Execution |
 
 ---
