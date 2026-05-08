@@ -19,7 +19,7 @@ model Agent {
   repoUrl           String?
   status            AgentStatus @default(STOPPED)
   containerId       String?
-  maxToolIterations Int         @default(50)
+  maxToolIterations Int         @default(100)
   allowedTools      String[]
   createdAt         DateTime    @default(now())
 

@@ -42,6 +42,24 @@ type ToolCall = { id: string; type: 'function'; function: { name: string; argume
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function fetchWithRetry(url: string, init: RequestInit, maxRetries = 3): Promise<Response> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const res = await fetch(url, init)
+    if (res.ok) return res
+    const isRetryable = res.status >= 500 || res.status === 429
+    if (isRetryable && attempt < maxRetries - 1) {
+      await sleep(1000 * Math.pow(2, attempt))
+      continue
+    }
+    throw new Error(`${res.status}: ${await res.text()}`)
+  }
+  throw new Error('Max retries exceeded')
+}
+
 async function openAICompatChat(
   baseURL: string,
   apiKey: string,
@@ -53,12 +71,11 @@ async function openAICompatChat(
   const body: Record<string, unknown> = { model, messages }
   if (toolList.length > 0) body.tools = toolList
 
-  const res = await fetch(`${baseURL}/chat/completions`, {
+  const res = await fetchWithRetry(`${baseURL}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, ...extraHeaders },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`)
   const data = await res.json() as { choices: { finish_reason: string; message: Message }[] }
   return data.choices[0]
 }
@@ -164,7 +181,7 @@ async function runAnthropicToolLoop(
   ]
 
   for (let i = 0; i < maxToolIterations; i++) {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetchWithRetry('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -179,7 +196,6 @@ async function runAnthropicToolLoop(
         tools: toolList,
       }),
     })
-    if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`)
 
     const data = await res.json() as { stop_reason: string; content: AnthropicContent[] }
 
