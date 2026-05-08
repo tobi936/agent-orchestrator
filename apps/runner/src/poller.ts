@@ -65,7 +65,7 @@ Use create_agent / update_agent to build or improve agents as part of your task.
 async function tick() {
   const [tasks, allAgents] = await Promise.all([
     prisma.task.findMany({
-      where: { status: 'PENDING', forHuman: false, agent: { status: 'RUNNING' } },
+      where: { status: 'PENDING', forHuman: false },
       include: {
         agent: {
           select: { id: true, systemPrompt: true, name: true, provider: true, model: true, repoUrl: true, maxToolIterations: true, allowedTools: true },
@@ -76,6 +76,22 @@ async function tick() {
     }),
     prisma.agent.findMany({ select: { id: true, name: true, systemPrompt: true, status: true } }),
   ])
+
+  // Auto-start any agents that have pending tasks but are currently stopped
+  const agentsToStart = new Set<string>()
+  for (const t of tasks) {
+    if (t.agent.status !== 'RUNNING') {
+      agentsToStart.add(t.agent.id)
+    }
+  }
+  for (const aid of agentsToStart) {
+    const startResult = await startAgent(aid)
+    if (startResult.ok) {
+      appendLog(aid, `[${new Date().toISOString()}] Auto-started agent (via pending task)`)
+    } else {
+      appendLog(aid, `[${new Date().toISOString()}] Auto-start failed: ${startResult.error}`)
+    }
+  }
 
   for (const task of tasks) {
     const { agent } = task
@@ -220,8 +236,27 @@ async function tick() {
         }
       })
     }
+    // Auto-stop agents that are running but have no pending tasks (added feature to shut down idle agents)
+  for (const a of allAgents) {
+    if (a.status === 'RUNNING' && !sandboxes.has(a.id)) {
+      // No sandbox means already stopped
+      continue
+    }
+    if (a.status === 'RUNNING') {
+      const pending = await prisma.task.count({ where: { agentId: a.id, status: 'PENDING', forHuman: false } })
+      if (pending === 0) {
+        const sandbox = sandboxes.get(a.id)
+        if (sandbox) {
+          await sandbox.kill().catch(() => {})
+          sandboxes.delete(a.id)
+        }
+        await prisma.agent.update({ where: { id: a.id }, data: { status: 'STOPPED' } })
+        appendLog(a.id, `[${new Date().toISOString()}] Auto-stopped idle agent`)
+      }
+    }
   }
-}
+
+
 
 export function startPoller() {
   console.log('[poller] Started — polling every', INTERVAL_MS, 'ms')
