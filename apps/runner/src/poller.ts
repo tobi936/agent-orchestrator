@@ -236,7 +236,8 @@ async function tick() {
         }
       })
     }
-    // Auto-stop agents that are running but have no pending tasks (added feature to shut down idle agents)
+  }
+  // Auto-stop agents that are running but have no pending tasks
   for (const a of allAgents) {
     if (a.status === 'RUNNING' && !sandboxes.has(a.id)) {
       // No sandbox means already stopped
@@ -255,8 +256,7 @@ async function tick() {
       }
     }
   }
-
-
+}
 
 export function startPoller() {
   console.log('[poller] Started — polling every', INTERVAL_MS, 'ms')
