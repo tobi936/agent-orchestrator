@@ -491,13 +491,88 @@ export const ghTools = [
       },
     },
   },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'gh_close_pull_request',
+      description: 'Close a GitHub pull request without merging. Use this to close a PR when the sandbox is no longer available.',
+      parameters: {
+        type: 'object',
+        properties: {
+          owner:  { type: 'string', description: 'Repository owner' },
+          repo:   { type: 'string', description: 'Repository name' },
+          number: { type: 'number', description: 'Pull request number' },
+        },
+        required: ['owner', 'repo', 'number'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'gh_delete_branch',
+      description: 'Delete a remote branch on GitHub via the API. Use this when the sandbox is no longer available and you cannot run git commands.',
+      parameters: {
+        type: 'object',
+        properties: {
+          owner:  { type: 'string', description: 'Repository owner' },
+          repo:   { type: 'string', description: 'Repository name' },
+          branch: { type: 'string', description: 'Branch name to delete' },
+        },
+        required: ['owner', 'repo', 'branch'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'gh_merge_pull_request',
+      description: 'Merge a GitHub pull request via the API.',
+      parameters: {
+        type: 'object',
+        properties: {
+          owner:        { type: 'string', description: 'Repository owner' },
+          repo:         { type: 'string', description: 'Repository name' },
+          number:       { type: 'number', description: 'Pull request number' },
+          merge_method: { type: 'string', enum: ['merge', 'squash', 'rebase'], description: 'Merge method (default: merge)' },
+        },
+        required: ['owner', 'repo', 'number'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'gh_list_pull_requests',
+      description: 'List pull requests for a GitHub repository.',
+      parameters: {
+        type: 'object',
+        properties: {
+          owner: { type: 'string', description: 'Repository owner' },
+          repo:  { type: 'string', description: 'Repository name' },
+          state: { type: 'string', enum: ['open', 'closed', 'all'], description: 'Filter by state (default: open)' },
+        },
+        required: ['owner', 'repo'],
+      },
+    },
+  },
 ]
 
-async function ghFetch(path: string): Promise<string> {
+async function ghFetch(
+  path: string,
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE' = 'GET',
+  body?: Record<string, unknown>,
+): Promise<string> {
   const token = process.env.GITHUB_TOKEN
   const headers: Record<string, string> = { Accept: 'application/vnd.github+json' }
   if (token) headers['Authorization'] = `Bearer ${token}`
-  const res = await fetch(`https://api.github.com${path}`, { headers })
+  if (body) headers['Content-Type'] = 'application/json'
+  const res = await fetch(`https://api.github.com${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  if (res.status === 204) return 'OK'
   const json = await res.json() as unknown
   if (!res.ok) return `GitHub API error ${res.status}: ${JSON.stringify(json)}`
   return JSON.stringify(json, null, 2)
@@ -509,6 +584,10 @@ export async function executeGhTool(name: string, input: Record<string, string |
     if (name === 'gh_list_issues') return ghFetch(`/repos/${input.owner}/${input.repo}/issues?state=${input.state ?? 'open'}&per_page=30`)
     if (name === 'gh_get_pull_request') return ghFetch(`/repos/${input.owner}/${input.repo}/pulls/${input.number}`)
     if (name === 'gh_get_repo') return ghFetch(`/repos/${input.owner}/${input.repo}`)
+    if (name === 'gh_list_pull_requests') return ghFetch(`/repos/${input.owner}/${input.repo}/pulls?state=${input.state ?? 'open'}&per_page=30`)
+    if (name === 'gh_close_pull_request') return ghFetch(`/repos/${input.owner}/${input.repo}/pulls/${input.number}`, 'PATCH', { state: 'closed' })
+    if (name === 'gh_delete_branch') return ghFetch(`/repos/${input.owner}/${input.repo}/git/refs/heads/${input.branch}`, 'DELETE')
+    if (name === 'gh_merge_pull_request') return ghFetch(`/repos/${input.owner}/${input.repo}/pulls/${input.number}/merge`, 'PUT', { merge_method: input.merge_method ?? 'merge' })
     return `Unknown gh tool: ${name}`
   } catch (err) {
     return `Error: ${err instanceof Error ? err.message : String(err)}`
