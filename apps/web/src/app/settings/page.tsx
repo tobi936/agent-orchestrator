@@ -49,6 +49,7 @@ interface OllamaKeyStatus {
 export default function SettingsPage() {
   const router = useRouter()
   const [autoStart, setAutoStart] = useState(true)
+  const [autoStop, setAutoStop] = useState(true)
   const [theme, setTheme] = useState<'system' | 'light' | 'dark'>('system')
   const [ollamaKeys, setOllamaKeys] = useState<OllamaKeyStatus | null>(null)
   const [switchingKey, setSwitchingKey] = useState(false)
@@ -60,16 +61,26 @@ export default function SettingsPage() {
     } catch {}
   }, [])
 
+  const fetchSettings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/settings')
+      if (res.ok) {
+        const data = await res.json()
+        setAutoStart(data.autoStart)
+        setAutoStop(data.autoStop)
+      }
+    } catch {}
+  }, [])
+
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('autoStart')
-      if (stored !== null) setAutoStart(stored !== 'false')
       const storedTheme = localStorage.getItem('theme')
       if (storedTheme === 'dark' || storedTheme === 'light') setTheme(storedTheme)
       else setTheme('system')
     } catch {}
     fetchOllamaKeys()
-  }, [fetchOllamaKeys])
+    fetchSettings()
+  }, [fetchOllamaKeys, fetchSettings])
 
   async function handleSwitchKey(index?: number) {
     setSwitchingKey(true)
@@ -85,9 +96,14 @@ export default function SettingsPage() {
     }
   }
 
-  function handleAutoStart(val: boolean) {
+  async function handleAutoStart(val: boolean) {
     setAutoStart(val)
-    try { localStorage.setItem('autoStart', String(val)) } catch {}
+    await fetch('/api/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autoStart: val }) })
+  }
+
+  async function handleAutoStop(val: boolean) {
+    setAutoStop(val)
+    await fetch('/api/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autoStop: val }) })
   }
 
   function handleTheme(val: 'system' | 'light' | 'dark') {
@@ -141,8 +157,11 @@ export default function SettingsPage() {
           </Section>
 
           <Section title="Agents">
-            <Row label="Auto-start agent" description="Automatically start a stopped agent when sending a message">
+            <Row label="Auto-start" description="Automatically start a stopped agent when a task is pending">
               <Toggle value={autoStart} onChange={handleAutoStart} />
+            </Row>
+            <Row label="Auto-stop" description="Automatically stop an idle agent when all tasks are done">
+              <Toggle value={autoStop} onChange={handleAutoStop} />
             </Row>
           </Section>
 
