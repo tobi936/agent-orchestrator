@@ -1,7 +1,8 @@
 'use client'
- 
- import { useState } from 'react'
- import { useRouter } from 'next/navigation'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
  
  const PROVIDERS = [
    { value: 'ollama',    label: 'Ollama Cloud',  defaultModel: 'gpt-oss:20b',              hint: 'e.g. gpt-oss:20b, gpt-oss:120b, deepseek-v3.1:671b, qwen3-coder:480b' },
@@ -199,20 +200,12 @@ focus:border-accent transition-colors"
              )}
  
              <div className="flex items-center gap-2 pt-1">
-               <button
-                 type="submit"
-                 disabled={loading}
-                 className="bg-accent hover:opacity-90 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-opacity"
-               >
+               <Button type="submit" disabled={loading}>
                  {loading ? 'Creating…' : 'Create Agent'}
-               </button>
-               <button
-                 type="button"
-                 onClick={() => router.push('/')}
-                 className="text-sm font-medium text-ink-3 hover:text-ink px-4 py-2 rounded-lg hover:bg-hover transition-colors"
-               >
+               </Button>
+               <Button type="button" variant="ghost" onClick={() => router.push('/')}>
                  Cancel
-               </button>
+               </Button>
              </div>
            </form>
          </div>

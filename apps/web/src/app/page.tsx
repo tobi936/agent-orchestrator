@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
+import { Button } from '@/components/ui/button'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -221,9 +222,9 @@ function TopBar({ isDark, onToggleDark }: {
         <span className="hidden sm:inline text-[11px] font-medium text-ink-3 px-1.5 py-0.5 bg-hover rounded border border-line">dev</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <button onClick={onToggleDark} title={isDark ? 'Light mode' : 'Dark mode'} className="w-7 h-7 rounded-md flex items-center justify-center text-ink-3 hover:text-ink hover:bg-hover transition-colors">
+        <Button variant="ghost" size="icon" onClick={onToggleDark} title={isDark ? 'Light mode' : 'Dark mode'} className="text-ink-3">
           {isDark ? <SunIcon /> : <MoonIcon />}
-        </button>
+        </Button>
         <div ref={ref} className="relative">
           <button
             onClick={() => setMenuOpen((v) => !v)}
@@ -373,13 +374,15 @@ function Sidebar({
       </div>
 
       <div className="p-2 shrink-0 border-t border-line">
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => router.push('/agents/new')}
-          className="w-full flex items-center justify-center gap-1 py-1.5 text-[11px] font-medium text-ink-3 hover:text-accent-fg hover:bg-accent-bg rounded-md transition-colors border border-dashed border-line hover:border-accent-bdr"
+          className="w-full border-dashed hover:text-accent-fg hover:bg-accent-bg hover:border-accent-bdr"
         >
           <span className="text-sm leading-none font-light">+</span>
           New Agent
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -574,11 +577,11 @@ function TaskThread({
   return (
     <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex flex-1 min-w-0 flex-col border-r border-line`}>
       <div className="h-11 px-4 flex items-center gap-3 border-b border-line shrink-0 bg-raised">
-        <button onClick={onBack} className="text-ink-3 hover:text-ink transition-colors">
+        <Button variant="ghost" size="icon" onClick={onBack} className="text-ink-3">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 11L5 7l4-4" />
           </svg>
-        </button>
+        </Button>
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <StatusDot status={agent.status} />
           <span className="text-sm font-semibold text-ink truncate">{agent.name}</span>
@@ -657,9 +660,9 @@ function TaskThread({
               placeholder="Reply to agent…"
               className="flex-1 bg-raised border border-amber-300 dark:border-amber-700 rounded-lg px-3.5 py-2 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-amber-500 transition-colors"
             />
-            <button type="submit" disabled={!input.trim()} className="bg-amber-500 hover:opacity-90 disabled:opacity-40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-opacity">
+            <Button type="submit" disabled={!input.trim()} className="bg-amber-500 hover:bg-amber-600">
               Reply
-            </button>
+            </Button>
           </form>
         ) : canReply ? (
           <form onSubmit={handleSubmit} className="flex gap-2">
@@ -670,9 +673,9 @@ function TaskThread({
               placeholder="Follow-up message…"
               className="flex-1 bg-raised border border-line rounded-lg px-3.5 py-2 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent transition-colors"
             />
-            <button type="submit" disabled={!input.trim()} className="bg-accent hover:opacity-90 disabled:opacity-40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-opacity">
+            <Button type="submit" disabled={!input.trim()}>
               Send
-            </button>
+            </Button>
           </form>
         ) : (
           <p className="text-[11px] text-ink-4 text-center">
@@ -751,12 +754,24 @@ function AgentChat({
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <button onClick={onToggle} disabled={actionLoading} className={`text-[11px] font-medium px-3 py-1 rounded-md transition-colors disabled:opacity-50 ${agent.status === 'RUNNING' ? 'bg-raised border border-line text-ink-2 hover:bg-hover hover:text-ink' : 'bg-accent text-white hover:opacity-90'}`}>
+          <Button
+            size="sm"
+            variant={agent.status === 'RUNNING' ? 'secondary' : 'default'}
+            onClick={onToggle}
+            disabled={actionLoading}
+          >
             {actionLoading ? '…' : agent.status === 'RUNNING' ? 'Stop' : 'Start'}
-          </button>
-          <button onClick={onDelete} disabled={actionLoading || agent.status === 'RUNNING'} title="Delete agent" className="text-[11px] font-medium px-2 py-1 rounded-md text-ink-3 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onDelete}
+            disabled={actionLoading || agent.status === 'RUNNING'}
+            title="Delete agent"
+            className="text-ink-3 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:cursor-not-allowed"
+          >
             Delete
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -804,9 +819,9 @@ function AgentChat({
             disabled={!autoStart && agent.status !== 'RUNNING'}
             className="flex-1 bg-raised border border-line rounded-lg px-3.5 py-2 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent transition-colors disabled:opacity-50 disabled:bg-hover"
           />
-          <button type="submit" disabled={(!autoStart && agent.status !== 'RUNNING') || !input.trim()} className="bg-accent hover:opacity-90 disabled:opacity-40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-opacity">
+          <Button type="submit" disabled={(!autoStart && agent.status !== 'RUNNING') || !input.trim()}>
             Send
-          </button>
+          </Button>
         </form>
       </div>
     </div>
@@ -1129,9 +1144,9 @@ function TaskBacklogPanel({
                   ))}
                 </div>
                 {saveError && <p className="text-[10px] text-red-500">{saveError}</p>}
-                <button onClick={handleSave} disabled={saving} className="w-full py-1.5 rounded bg-accent text-white text-[11px] font-medium hover:opacity-90 disabled:opacity-50 transition-opacity">
+                <Button onClick={handleSave} disabled={saving} className="w-full" size="sm">
                   {saving ? 'Saving…' : 'Save'}
-                </button>
+                </Button>
               </div>
             </section>
           )}
