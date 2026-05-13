@@ -219,12 +219,6 @@ function TopBar({ isDark, onToggleDark }: {
         <span className="text-sm font-semibold tracking-tight text-ink">Orchestrator</span>
         <span className="h-3.5 w-px bg-line hidden sm:block" />
         <span className="hidden sm:inline text-[11px] font-medium text-ink-3 px-1.5 py-0.5 bg-hover rounded border border-line">dev</span>
-        <button
-          onClick={() => router.push('/dashboard')}
-          className="hidden sm:inline text-[11px] font-medium text-ink-3 px-1.5 py-0.5 rounded hover:bg-hover hover:text-ink transition-colors"
-        >
-          Dashboard
-        </button>
       </div>
       <div className="flex items-center gap-1.5">
         <button onClick={onToggleDark} title={isDark ? 'Light mode' : 'Dark mode'} className="w-7 h-7 rounded-md flex items-center justify-center text-ink-3 hover:text-ink hover:bg-hover transition-colors">
