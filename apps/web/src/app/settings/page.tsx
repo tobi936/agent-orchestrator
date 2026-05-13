@@ -3,20 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      onClick={() => onChange(!value)}
-      className={`relative rounded-full transition-colors shrink-0 ${value ? 'bg-[var(--c-accent)]' : 'bg-[var(--c-line)]'}`}
-      style={{ width: 32, height: 18 }}
-    >
-      <span
-        className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow transition-transform ${value ? 'translate-x-[14px]' : 'translate-x-0.5'}`}
-      />
-    </button>
-  )
-}
+import { Toggle } from '@/components/ui/toggle'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
