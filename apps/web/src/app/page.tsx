@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -653,12 +655,12 @@ function TaskThread({
       <div className="px-4 py-3 shrink-0 border-t border-line bg-raised">
         {task.forHuman ? (
           <form onSubmit={handleSubmit} className="flex gap-2">
-            <input
+            <Input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Reply to agent…"
-              className="flex-1 bg-raised border border-amber-300 dark:border-amber-700 rounded-lg px-3.5 py-2 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-amber-500 transition-colors"
+              className="flex-1 border-amber-300 dark:border-amber-700 focus:border-amber-500"
             />
             <Button type="submit" disabled={!input.trim()} className="bg-amber-500 hover:bg-amber-600">
               Reply
@@ -666,12 +668,12 @@ function TaskThread({
           </form>
         ) : canReply ? (
           <form onSubmit={handleSubmit} className="flex gap-2">
-            <input
+            <Input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Follow-up message…"
-              className="flex-1 bg-raised border border-line rounded-lg px-3.5 py-2 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent transition-colors"
+              className="flex-1"
             />
             <Button type="submit" disabled={!input.trim()}>
               Send
@@ -749,9 +751,9 @@ function AgentChat({
         <div className="flex items-center gap-2">
           <StatusDot status={agent.status} />
           <span className="text-sm font-semibold text-ink">{agent.name}</span>
-          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full font-mono ${agent.status === 'RUNNING' ? 'bg-green-bg text-green-fg' : 'bg-hover text-ink-3'}`}>
+          <Badge variant={agent.status === 'RUNNING' ? 'running' : 'default'}>
             {agent.status === 'RUNNING' ? 'running' : 'idle'}
-          </span>
+          </Badge>
         </div>
         <div className="flex items-center gap-1.5">
           <Button
@@ -811,13 +813,13 @@ function AgentChat({
 
       <div className="px-4 py-3 shrink-0 border-t border-line bg-raised">
         <form onSubmit={handleSubmit} className="flex gap-2">
-          <input
+          <Input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={agent.status === 'RUNNING' ? 'New task…' : autoStart ? 'New task… (agent will start automatically)' : 'Start the agent first'}
             disabled={!autoStart && agent.status !== 'RUNNING'}
-            className="flex-1 bg-raised border border-line rounded-lg px-3.5 py-2 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-accent transition-colors disabled:opacity-50 disabled:bg-hover"
+            className="flex-1"
           />
           <Button type="submit" disabled={(!autoStart && agent.status !== 'RUNNING') || !input.trim()}>
             Send

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -123,15 +124,12 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-[var(--c-bg)] p-6">
       <div className="max-w-lg mx-auto">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-1.5 text-sm text-[var(--c-ink-3)] hover:text-[var(--c-ink)] transition-colors mb-6"
-        >
+        <Button variant="ghost" size="sm" onClick={() => router.back()} className="mb-6 text-ink-3 gap-1">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M9 11L5 7l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           Back
-        </button>
+        </Button>
 
         <h1 className="text-xl font-semibold text-[var(--c-ink)] mb-6">Settings</h1>
 
@@ -172,31 +170,25 @@ export default function SettingsPage() {
                 description={`Key ${ollamaKeys.current + 1} of ${ollamaKeys.total}: ${ollamaKeys.maskedKeys[ollamaKeys.current] ?? '—'}`}
               >
                 {ollamaKeys.total > 1 && (
-                  <button
-                    onClick={() => handleSwitchKey()}
-                    disabled={switchingKey}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--c-accent)] text-white hover:opacity-80 transition-opacity disabled:opacity-40"
-                  >
+                  <Button size="sm" onClick={() => handleSwitchKey()} disabled={switchingKey}>
                     {switchingKey ? 'Switching…' : 'Switch key'}
-                  </button>
+                  </Button>
                 )}
               </Row>
               {ollamaKeys.total > 1 && (
                 <div className="px-5 py-3 flex flex-wrap gap-2">
                   {ollamaKeys.maskedKeys.map((key, i) => (
-                    <button
+                    <Button
                       key={i}
+                      size="sm"
+                      variant={i === ollamaKeys.current ? 'default' : 'outline'}
                       onClick={() => handleSwitchKey(i)}
                       disabled={switchingKey || i === ollamaKeys.current}
-                      className={`px-2.5 py-1 rounded-md text-xs font-mono transition-colors border ${
-                        i === ollamaKeys.current
-                          ? 'border-[var(--c-accent)] text-[var(--c-accent)] bg-[var(--c-accent)]/10 cursor-default'
-                          : 'border-[var(--c-line)] text-[var(--c-ink-3)] hover:text-[var(--c-ink)] hover:border-[var(--c-ink-3)] disabled:opacity-40'
-                      }`}
+                      className="font-mono text-[11px]"
                     >
-                      {i === ollamaKeys.current && <span className="mr-1">&#10003;</span>}
+                      {i === ollamaKeys.current && <span>✓</span>}
                       Key {i + 1}: {key}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
