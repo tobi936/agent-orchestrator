@@ -1,7 +1,11 @@
 'use client'
- 
- import { useState } from 'react'
- import { useRouter } from 'next/navigation'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Select } from '@/components/ui/select'
  
  const PROVIDERS = [
    { value: 'ollama',    label: 'Ollama Cloud',  defaultModel: 'gpt-oss:20b',              hint: 'e.g. gpt-oss:20b, gpt-oss:120b, deepseek-v3.1:671b, qwen3-coder:480b' },
@@ -96,14 +100,12 @@
                <label className="block text-[11px] font-medium text-ink-3 mb-1.5 uppercase tracking-wider">
                  Name
                </label>
-               <input
+               <Input
                  type="text"
                  value={name}
                  onChange={(e) => setName(e.target.value)}
                  placeholder="e.g. Research Assistant"
                  required
-                 className="w-full bg-raised border border-line rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-4 focus:outline-none 
-focus:border-accent transition-colors"
                />
              </div>
  
@@ -111,14 +113,12 @@ focus:border-accent transition-colors"
                <label className="block text-[11px] font-medium text-ink-3 mb-1.5 uppercase tracking-wider">
                  System Prompt
                </label>
-               <textarea
+               <Textarea
                  value={systemPrompt}
                  onChange={(e) => setSystemPrompt(e.target.value)}
                  placeholder="You are a helpful assistant that…"
                  required
                  rows={5}
-                 className="w-full bg-raised border border-line rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-4 focus:outline-none 
-focus:border-accent transition-colors resize-none font-sans"
                />
              </div>
  
@@ -129,29 +129,26 @@ focus:border-accent transition-colors resize-none font-sans"
                  <label className="block text-[11px] font-medium text-ink-3 mb-1.5 uppercase tracking-wider">
                    Provider
                  </label>
-                 <select
+                 <Select
                    value={provider}
                    onChange={(e) => handleProviderChange(e.target.value as typeof PROVIDERS[number]['value'])}
-                   className="w-full bg-raised border border-line rounded-lg px-3.5 py-2.5 text-sm text-ink focus:outline-none focus:border-accent 
-transition-colors"
                  >
                    {PROVIDERS.map((p) => (
                      <option key={p.value} value={p.value}>{p.label}</option>
                    ))}
-                 </select>
+                 </Select>
                </div>
  
                <div>
                  <label className="block text-[11px] font-medium text-ink-3 mb-1.5 uppercase tracking-wider">
                    Model
                  </label>
-                 <input
+                 <Input
                    type="text"
                    value={model}
                    onChange={(e) => setModel(e.target.value)}
                    required
-                   className="w-full bg-raised border border-line rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-4 focus:outline-none 
-focus:border-accent transition-colors font-mono"
+                   className="font-mono"
                  />
                  <p className="text-[11px] text-ink-3 mt-1">{currentProvider.hint}</p>
                </div>
@@ -164,13 +161,11 @@ focus:border-accent transition-colors font-mono"
                  <label className="block text-[11px] font-medium text-ink-3 mb-1.5 uppercase tracking-wider">
                    GitHub Repo
                  </label>
-                 <input
+                 <Input
                    type="text"
                    value={repoUrl}
                    onChange={(e) => setRepoUrl(e.target.value)}
                    placeholder="https://github.com/you/your-repo"
-                   className="w-full bg-raised border border-line rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-4 focus:outline-none 
-focus:border-accent transition-colors"
                  />
                  <p className="text-[11px] text-ink-3 mt-1">Cloned to /workspace on start</p>
                </div>
@@ -179,14 +174,13 @@ focus:border-accent transition-colors"
                  <label className="block text-[11px] font-medium text-ink-3 mb-1.5 uppercase tracking-wider">
                    Max Tool Iterations
                  </label>
-                 <input
+                 <Input
                    type="number"
                    min={1}
                    max={500}
                    value={maxToolIterations}
                    onChange={(e) => setMaxToolIterations(Number(e.target.value))}
                    required
-                   className="w-full bg-raised border border-line rounded-lg px-3.5 py-2.5 text-sm text-ink focus:outline-none focus:border-accent transition-colors"
                  />
                  <p className="text-[11px] text-ink-3 mt-1">Max tool calls per message before the agent stops</p>
                </div>
@@ -199,20 +193,12 @@ focus:border-accent transition-colors"
              )}
  
              <div className="flex items-center gap-2 pt-1">
-               <button
-                 type="submit"
-                 disabled={loading}
-                 className="bg-accent hover:opacity-90 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-opacity"
-               >
+               <Button type="submit" disabled={loading}>
                  {loading ? 'Creating…' : 'Create Agent'}
-               </button>
-               <button
-                 type="button"
-                 onClick={() => router.push('/')}
-                 className="text-sm font-medium text-ink-3 hover:text-ink px-4 py-2 rounded-lg hover:bg-hover transition-colors"
-               >
+               </Button>
+               <Button type="button" variant="ghost" onClick={() => router.push('/')}>
                  Cancel
-               </button>
+               </Button>
              </div>
            </form>
          </div>

@@ -2,6 +2,8 @@
 
 import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -32,39 +34,45 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--c-bg)]">
+    <div className="min-h-screen flex items-center justify-center bg-bg">
       <div className="w-full max-w-sm">
-        <div className="bg-[var(--c-raised)] border border-[var(--c-line)] rounded-xl p-8 shadow-sm">
-          <h1 className="text-xl font-semibold text-[var(--c-ink)] mb-6">
-            Agent Orchestrator
-          </h1>
+        <div className="bg-raised border border-line rounded-xl p-8 shadow-sm">
+          <div className="flex items-center gap-2.5 mb-6">
+            <div className="w-7 h-7 rounded-[6px] bg-accent flex items-center justify-center shrink-0">
+              <svg width="14" height="14" viewBox="0 0 12 12" fill="none">
+                <rect x="1" y="1" width="4" height="4" rx="1" fill="white" fillOpacity="0.9" />
+                <rect x="7" y="1" width="4" height="4" rx="1" fill="white" fillOpacity="0.6" />
+                <rect x="1" y="7" width="4" height="4" rx="1" fill="white" fillOpacity="0.6" />
+                <rect x="7" y="7" width="4" height="4" rx="1" fill="white" fillOpacity="0.9" />
+              </svg>
+            </div>
+            <h1 className="text-lg font-semibold text-ink tracking-tight">Agent Orchestrator</h1>
+          </div>
+
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[var(--c-ink-2)]">
+              <label className="text-[11px] font-medium text-ink-3 uppercase tracking-wider">
                 Password
               </label>
-              <input
+              <Input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password"
                 required
                 autoFocus
-                className="px-3 py-2 rounded-lg border border-[var(--c-line)] bg-[var(--c-surface)] text-[var(--c-ink)] placeholder:text-[var(--c-ink-4)] focus:outline-none focus:ring-2 focus:ring-[var(--c-accent)] focus:border-transparent text-sm"
               />
             </div>
+
             {error && (
-              <p className="text-sm text-[var(--c-orange-fg)] bg-[var(--c-orange-bg)] px-3 py-2 rounded-lg">
+              <p className="text-sm text-orange-fg bg-orange-bg px-3 py-2 rounded-lg border border-orange-fg/20">
                 {error}
               </p>
             )}
-            <button
-              type="submit"
-              disabled={loading}
-              className="py-2 px-4 rounded-lg bg-[var(--c-accent)] text-white font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
-            >
+
+            <Button type="submit" disabled={loading} className="w-full" size="lg">
               {loading ? 'Checking…' : 'Sign in'}
-            </button>
+            </Button>
           </form>
         </div>
       </div>
