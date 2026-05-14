@@ -3,16 +3,16 @@
 @tailwind utilities;
 
 :root {
-  --c-bg:         #E4E2DC;
-  --c-surface:    #EFEDE8;
-  --c-raised:     #FAFAF8;
-  --c-ink:        #0E0E0C;
-  --c-ink-2:      #3A3A38;
-  --c-ink-3:      #7A7A76;
-  --c-ink-4:      #AAAAAA;
-  --c-line:       #C8C5BC;
-  --c-hover:      #E8E6DF;
-  --c-selected:   #DDD9D0;
+  --c-bg:         #E8E8ED;
+  --c-surface:    #F0F0F5;
+  --c-raised:     #FAFAFC;
+  --c-ink:        #0E0E10;
+  --c-ink-2:      #38383C;
+  --c-ink-3:      #78787E;
+  --c-ink-4:      #AAAAB0;
+  --c-line:       #C8C8D0;
+  --c-hover:      #E0E0E8;
+  --c-selected:   #D4D4DC;
   --c-accent:     #3D3DF5;
   --c-accent-bg:  #EBEBFD;
   --c-accent-bdr: #BBBBED;
@@ -22,7 +22,7 @@
   --c-green-fg:   #0A7A5C;
   --c-orange-bg:  #FFE8C8;
   --c-orange-fg:  #A03A00;
-  --c-dot:        #BFBDB6;
+  --c-dot:        #BCBCC6;
 }
 
 html.dark {
@@ -56,7 +56,7 @@ body {
 
 /* Sidebar: etwas dunkler als bg — kein Farbton */
 .sidebar-panel {
-  background-color: #DAD8D1;
+  background-color: #D8D8E0;
 }
 html.dark .sidebar-panel {
   background-color: #1A1A2E;
@@ -64,7 +64,7 @@ html.dark .sidebar-panel {
 
 /* Inbox/Infra Panel: gleich wie Sidebar */
 .inbox-panel {
-  background-color: #DAD8D1;
+  background-color: #D8D8E0;
 }
 html.dark .inbox-panel {
   background-color: #141E18;
@@ -72,7 +72,7 @@ html.dark .inbox-panel {
 
 /* Chat-Bereich: am hellsten — der Hauptarbeitsbereich */
 .chat-bg {
-  background-color: #F5F4F0;
+  background-color: #F4F4F8;
 }
 html.dark .chat-bg {
   background-color: #1F1F23;
