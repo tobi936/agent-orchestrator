@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { TaskStatus } from '@prisma/client'
 import { NextResponse } from 'next/server'
 
 export async function GET(req: Request) {
@@ -7,10 +8,10 @@ export async function GET(req: Request) {
 
   const where =
     status === 'active'
-      ? { status: { in: ['PENDING', 'IN_PROGRESS'] as const } }
+      ? { status: { in: ['PENDING', 'IN_PROGRESS'] as TaskStatus[] } }
       : status === 'done'
-        ? { status: 'DONE' as const }
-        : {}
+        ? { status: 'DONE' as TaskStatus }
+        : undefined
 
   const tasks = await prisma.task.findMany({
     where,
