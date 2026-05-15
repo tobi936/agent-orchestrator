@@ -43,6 +43,7 @@ interface Task {
   content: string
   status: TaskStatus
   forHuman: boolean
+  priority: number
   createdAt: string
   thread: TaskMessage[]
 }
@@ -70,6 +71,12 @@ function statusColor(status: TaskStatus) {
   if (status === 'PENDING') return 'bg-orange-bg text-orange-fg'
   if (status === 'IN_PROGRESS') return 'bg-accent-bg text-accent-fg'
   return 'bg-green-bg text-green-fg'
+}
+
+function priorityLabel(p: number) {
+  if (p === 0) return { label: 'urgent', cls: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' }
+  if (p === 2) return { label: 'low', cls: 'bg-ink-4/20 text-ink-4' }
+  return null
 }
 
 // ─── MarkdownContent ─────────────────────────────────────────────────────────
@@ -707,7 +714,7 @@ function AgentChat({
 }: {
   agent: Agent | null
   tasks: Task[]
-  onSendTask: (content: string) => void
+  onSendTask: (content: string, priority?: number) => void
   onSelectTask: (taskId: string) => void
   onToggle: () => void
   onDelete: () => void
@@ -719,13 +726,15 @@ function AgentChat({
   autoStart: boolean
 }) {
   const [input, setInput] = useState('')
+  const [priority, setPriority] = useState(1)
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!input.trim() || !agent) return
     if (!autoStart && agent.status !== 'RUNNING') return
-    onSendTask(input.trim())
+    onSendTask(input.trim(), priority)
     setInput('')
+    setPriority(1)
   }
 
   if (!agent) {
@@ -821,6 +830,16 @@ function AgentChat({
             disabled={!autoStart && agent.status !== 'RUNNING'}
             className="flex-1"
           />
+          <select
+            value={priority}
+            onChange={(e) => setPriority(Number(e.target.value))}
+            className="bg-raised border border-line rounded-md px-2 text-[11px] text-ink-2 focus:outline-none focus:border-accent"
+            title="Task priority"
+          >
+            <option value={0}>🔴 urgent</option>
+            <option value={1}>normal</option>
+            <option value={2}>low</option>
+          </select>
           <Button type="submit" disabled={(!autoStart && agent.status !== 'RUNNING') || !input.trim()}>
             Send
           </Button>
@@ -1190,6 +1209,7 @@ function TaskBacklogPanel({
                     {task.forHuman && (
                       <span className="text-[9px] font-mono px-1.5 py-px rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">needs you</span>
                     )}
+                    {(() => { const p = priorityLabel(task.priority); return p ? <span className={`text-[9px] font-mono px-1.5 py-px rounded-full ${p.cls}`}>{p.label}</span> : null })()}
                     {tab === 'outbox' && task.agent && (
                       <span className="text-[9px] text-ink-4">→ {task.agent.name}</span>
                     )}
@@ -1510,7 +1530,7 @@ export default function Dashboard() {
     }
   }
 
-  async function sendTask(content: string) {
+  async function sendTask(content: string, priority = 1) {
     if (!selectedAgentId) return
     if (autoStart && selectedAgent?.status === 'STOPPED') {
       await fetch(`/api/agents/${selectedAgentId}/start`, { method: 'POST' })
@@ -1519,7 +1539,7 @@ export default function Dashboard() {
     await fetch(`/api/agents/${selectedAgentId}/inbox`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, priority }),
     })
     fetchTasks()
   }

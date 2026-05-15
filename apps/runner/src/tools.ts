@@ -225,6 +225,7 @@ export const orchestrationTools = [
           target_agent_id: { type: 'string', description: 'ID of the agent to send the task to' },
           title: { type: 'string', description: 'Short title for the new task' },
           content: { type: 'string', description: 'Full task description for the target agent' },
+          priority: { type: 'number', description: 'Task priority: 0=urgent, 1=normal (default), 2=low' },
         },
         required: ['target_agent_id', 'title', 'content'],
       },

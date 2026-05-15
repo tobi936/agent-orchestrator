@@ -15,7 +15,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 // Human (or another agent) sends a new task to this agent
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { content, title, fromAgentId } = await req.json()
+  const { content, title, fromAgentId, priority } = await req.json()
   if (!content) return NextResponse.json({ error: 'content required' }, { status: 400 })
 
   const task = await prisma.task.create({
@@ -24,6 +24,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       fromAgentId: fromAgentId ?? null,
       title: title ?? content.slice(0, 80),
       content,
+      priority: typeof priority === 'number' ? Math.max(0, Math.min(2, priority)) : 1,
       thread: { create: [{ role: 'user', content }] },
     },
     include: { thread: { orderBy: { createdAt: 'asc' } } },

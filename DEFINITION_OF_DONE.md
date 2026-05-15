@@ -63,10 +63,12 @@ Eine Plattform auf der **autonome KI-Agenten wie ein Unternehmen zusammenarbeite
 - [x] Agent A wird wieder aufgeweckt mit B's Ergebnis als neue Nachricht
 - [x] Unterstützt Feedback-Loops: A → B → zurück an A → weiter an C
 
-### 2.4 Task-Priorisierung ⬜
-- [ ] Feld `priority` am Task (`low | normal | high | urgent`)
-- [ ] Agenten bearbeiten Tasks nach Priorität (nicht nur nach `createdAt`)
-- [ ] CEO-Agent kann Priorität beim Delegieren angeben
+### 2.4 Task-Priorisierung ✅
+- [x] Feld `priority` am Task (0=urgent, 1=normal, 2=low) im DB-Schema
+- [x] Poller sortiert: urgent zuerst, dann normal, dann low (dann `createdAt`)
+- [x] User kann Priorität beim Senden wählen (Selector im Sendfeld)
+- [x] `route_task()` akzeptiert optionalen `priority` Parameter
+- [x] Priority-Badge auf Task-Cards (nur bei urgent/low angezeigt)
 
 ### 2.5 Task-Timeout & Retry ⬜
 - [ ] Feld `deadline` am Task (optional)
@@ -191,8 +193,9 @@ Eine Plattform auf der **autonome KI-Agenten wie ein Unternehmen zusammenarbeite
 2. ~~**Volle Agent-Beschreibung** im System-Prompt (statt 100 Zeichen)~~ ✅ Fertig (300 Zeichen)
 3. ~~**Agent-Templates** — CEO, PO, Marketing etc. als One-Click Setup~~ ✅ Fertig
 4. ~~**Task-Flow Visualisierung** — wer hat was an wen delegiert~~ ✅ Fertig (Flow Tab)
-5. **Task-Priorität** — Feld + Sortierung im Polling
-6. **Notifications** für Human Inbox
+5. ~~**Task-Priorität** — Feld + Sortierung im Polling~~ ✅ Fertig
+6. **Globale Task-Übersicht** — eine Seite die alle Tasks über alle Agenten hinweg zeigt (Status, wer arbeitet daran, Priority, Flow)
+7. **Notifications** für Human Inbox
 
 ---
 

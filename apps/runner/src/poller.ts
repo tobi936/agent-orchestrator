@@ -74,7 +74,7 @@ async function tick() {
         },
         thread: { orderBy: { createdAt: 'asc' } },
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
     }),
     prisma.agent.findMany({ select: { id: true, name: true, systemPrompt: true, status: true } }),
   ])
@@ -107,7 +107,7 @@ async function tick() {
     await prisma.task.update({ where: { id: task.id }, data: { status: 'IN_PROGRESS' } })
 
     let reply: string
-    let routeTarget: { agentId: string; title: string; content: string } | null = null
+    let routeTarget: { agentId: string; title: string; content: string; priority?: number } | null = null
     let routeBackTarget: { title: string; content: string } | null = null
     let askHumanQuestion: string | null = null
 
@@ -160,6 +160,7 @@ async function tick() {
               agentId: toolInput.target_agent_id,
               title: toolInput.title,
               content: toolInput.content,
+              priority: typeof toolInput.priority === 'number' ? toolInput.priority : undefined,
             }
             return `Task routed to agent ${toolInput.target_agent_id}`
           }
@@ -245,6 +246,7 @@ async function tick() {
               fromAgentId: agent.id,
               title: routeTarget.title,
               content: routeTarget.content,
+              priority: routeTarget.priority ?? 1,
               thread: { create: [{ role: 'user', content: routeTarget.content }] },
             },
           })
