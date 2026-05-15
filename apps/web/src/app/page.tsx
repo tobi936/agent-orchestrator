@@ -23,6 +23,7 @@ interface Agent {
   repoUrl: string | null
   status: AgentStatus
   containerId: string | null
+  isOrchestrator: boolean
 }
 
 interface TaskMessage {
@@ -294,6 +295,7 @@ function Sidebar({
   onFilterChange,
   humanTaskCount,
   mobileVisible,
+  onAgentsCreated,
 }: {
   agents: Agent[]
   selectedAgentId: string | null
@@ -304,8 +306,20 @@ function Sidebar({
   onFilterChange: (f: 'all' | 'running' | 'idle') => void
   humanTaskCount: number
   mobileVisible: boolean
+  onAgentsCreated: () => void
 }) {
   const router = useRouter()
+  const [settingUp, setSettingUp] = useState(false)
+
+  async function setupDepartment() {
+    setSettingUp(true)
+    try {
+      await fetch('/api/setup-department', { method: 'POST' })
+      onAgentsCreated()
+    } finally {
+      setSettingUp(false)
+    }
+  }
   const runningCount = agents.filter((a) => a.status === 'RUNNING').length
 
   const filtered = agents.filter((a) => {
@@ -374,7 +388,12 @@ function Sidebar({
             >
               <span className="mt-[5px]"><StatusDot status={agent.status} /></span>
               <div className="min-w-0 flex-1">
-                <p className="text-[12px] font-medium truncate leading-tight">{agent.name}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[12px] font-medium truncate leading-tight">{agent.name}</p>
+                  {agent.isOrchestrator && (
+                    <span className="text-[8px] font-bold px-1 py-px rounded bg-accent/20 text-accent-fg shrink-0">ORCH</span>
+                  )}
+                </div>
                 <p className="text-[10px] text-ink-3 truncate mt-0.5 leading-tight">{agent.systemPrompt}</p>
               </div>
             </button>
@@ -383,6 +402,17 @@ function Sidebar({
       </div>
 
       <div className="p-2 shrink-0 border-t border-line space-y-1.5">
+        {agents.length === 0 && (
+          <Button
+            variant="default"
+            size="sm"
+            onClick={setupDepartment}
+            disabled={settingUp}
+            className="w-full bg-accent hover:bg-accent/90 text-white"
+          >
+            {settingUp ? 'Setting up…' : '🧠 Setup Software Department'}
+          </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
@@ -1016,6 +1046,7 @@ function TaskBacklogPanel({
   const [editMaxToolIterations, setEditMaxToolIterations] = useState(50)
   const [editRepoUrl, setEditRepoUrl] = useState('')
   const [editAllowedTools, setEditAllowedTools] = useState<string[]>([])
+  const [editIsOrchestrator, setEditIsOrchestrator] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
@@ -1028,6 +1059,7 @@ function TaskBacklogPanel({
       setEditMaxToolIterations(selectedAgent.maxToolIterations)
       setEditRepoUrl(selectedAgent.repoUrl ?? '')
       setEditAllowedTools(selectedAgent.allowedTools ?? [])
+      setEditIsOrchestrator(selectedAgent.isOrchestrator ?? false)
       setSaveError('')
     }
   }, [selectedAgent?.id])
@@ -1040,7 +1072,7 @@ function TaskBacklogPanel({
       const res = await fetch(`/api/agents/${selectedAgent.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: editName, systemPrompt: editSystemPrompt, provider: editProvider, model: editModel, maxToolIterations: editMaxToolIterations, repoUrl: editRepoUrl, allowedTools: editAllowedTools }),
+        body: JSON.stringify({ name: editName, systemPrompt: editSystemPrompt, provider: editProvider, model: editModel, maxToolIterations: editMaxToolIterations, repoUrl: editRepoUrl, allowedTools: editAllowedTools, isOrchestrator: editIsOrchestrator }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? `Error ${res.status}`)
@@ -1172,6 +1204,19 @@ function TaskBacklogPanel({
                       </div>
                     </div>
                   ))}
+                </div>
+                <div className="flex items-center justify-between py-2 border-t border-line">
+                  <div>
+                    <p className="text-[11px] text-ink font-medium">Orchestrator</p>
+                    <p className="text-[9px] text-ink-4">Always on — never auto-stops, auto-starts on runner boot</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditIsOrchestrator(!editIsOrchestrator)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${editIsOrchestrator ? 'bg-accent' : 'bg-line'}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${editIsOrchestrator ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
                 </div>
                 {saveError && <p className="text-[10px] text-red-500">{saveError}</p>}
                 <Button onClick={handleSave} disabled={saving} className="w-full" size="sm">
@@ -1602,6 +1647,7 @@ export default function Dashboard() {
           onFilterChange={setFilter}
           humanTaskCount={humanTasks.length}
           mobileVisible={mobilePanel === 'agents'}
+          onAgentsCreated={fetchAgents}
         />
 
         {showHumanInbox ? (

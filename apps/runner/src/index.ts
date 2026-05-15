@@ -135,5 +135,12 @@ app.listen(PORT, async () => {
     console.log(`[runner] Reset ${stuck.count} stuck IN_PROGRESS task(s) to PENDING`)
   }
 
+  // Auto-start orchestrator agents
+  const orchestrators = await prisma.agent.findMany({ where: { isOrchestrator: true, status: 'STOPPED' } })
+  for (const orch of orchestrators) {
+    console.log(`[runner] Auto-starting orchestrator: ${orch.name}`)
+    await startAgent(orch.id)
+  }
+
   startPoller()
 })
