@@ -414,6 +414,15 @@ function Sidebar({
 
       <div className="p-2 shrink-0 border-t border-line space-y-1.5">
         <Button
+          variant="default"
+          size="sm"
+          onClick={setupDepartment}
+          disabled={settingUp}
+          className="w-full bg-accent hover:bg-accent/90 text-white text-[11px]"
+        >
+          {settingUp ? 'Setting up…' : '🧠 Setup Department'}
+        </Button>
+        <Button
           variant="outline"
           size="sm"
           onClick={() => router.push('/agents/new')}
