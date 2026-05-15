@@ -78,15 +78,14 @@ Eine Plattform auf der **autonome KI-Agenten wie ein Unternehmen zusammenarbeite
 
 ## 3. Virtuelle Firma (Multi-Agent Workflows)
 
-### 3.1 Unternehmens-Setup ⬜
-- [ ] Vorgefertigte Agent-Templates:
-  - **CEO** — Ziele empfangen, in Projekte aufbrechen, an Reports delegieren
-  - **Product Owner** — Features definieren, User Stories schreiben, an Engineering delegieren
-  - **Engineering Lead** — Tasks in Tickets aufteilen, Code-Reviews koordinieren
-  - **Marketing Lead** — Kampagnen planen, an Content/SEO delegieren
-  - **Content Writer** — Texte/Copy schreiben
-  - **Dev Agent** — Code schreiben, testen, committen (mit Sandbox)
-- [ ] One-Click "Firma aufsetzen" — erstellt alle Standard-Agenten mit fertig konfiguriertem System-Prompt
+### 3.1 Unternehmens-Setup ✅
+- [x] Vorgefertigte Agent-Templates auf der "New Agent" Seite:
+  - **CEO** 👔 — Ziele empfangen, in Projekte aufbrechen, an Reports delegieren
+  - **Product Owner** 📋 — Features definieren, User Stories schreiben, an Engineering delegieren
+  - **Engineering Lead** ⚙️ — Tasks in Tickets aufteilen, Code-Reviews koordinieren
+  - **Marketing Lead** 📣 — Kampagnen planen, an Content/SEO delegieren
+  - **Dev Agent** 💻 — Code schreiben, testen, committen (mit Sandbox)
+- [ ] One-Click "Firma aufsetzen" — erstellt alle Standard-Agenten auf einmal
 
 ### 3.2 Vollautomatischer Flow ⬜
 - [ ] CEO bekommt 1 Aufgabe → gesamter Workflow läuft ohne menschlichen Eingriff durch
@@ -190,7 +189,7 @@ Eine Plattform auf der **autonome KI-Agenten wie ein Unternehmen zusammenarbeite
 
 1. ~~**`route_back()` Tool**~~ ✅ Fertig
 2. ~~**Volle Agent-Beschreibung** im System-Prompt (statt 100 Zeichen)~~ ✅ Fertig (300 Zeichen)
-3. **Agent-Templates** — CEO, PO, Marketing etc. als One-Click Setup
+3. ~~**Agent-Templates** — CEO, PO, Marketing etc. als One-Click Setup~~ ✅ Fertig
 4. **Task-Flow Visualisierung** — wer hat was an wen delegiert
 5. **Task-Priorität** — Feld + Sortierung im Polling
 6. **Notifications** für Human Inbox
