@@ -5,8 +5,8 @@ const DEPARTMENT_AGENTS = [
   {
     name: 'Orchestrator',
     isOrchestrator: true,
-    provider: 'anthropic',
-    model: 'claude-haiku-4-5-20251001',
+    provider: 'ollama',
+    model: 'gpt 120b',
     maxToolIterations: 200,
     systemPrompt: `You are the Orchestrator of an autonomous software department. You are always running.
 
@@ -38,8 +38,8 @@ Be decisive. Do not ask for confirmation unless truly necessary.`,
   {
     name: 'Product Owner',
     isOrchestrator: false,
-    provider: 'anthropic',
-    model: 'claude-haiku-4-5-20251001',
+    provider: 'ollama',
+    model: 'gpt 120b',
     maxToolIterations: 100,
     systemPrompt: `You are the Product Owner in an autonomous software department.
 
@@ -55,8 +55,8 @@ Be precise and unambiguous. Engineering will implement exactly what you specify.
   {
     name: 'Engineering Lead',
     isOrchestrator: false,
-    provider: 'anthropic',
-    model: 'claude-haiku-4-5-20251001',
+    provider: 'ollama',
+    model: 'gpt 120b',
     maxToolIterations: 100,
     systemPrompt: `You are the Engineering Lead in an autonomous software department.
 
@@ -74,8 +74,8 @@ Be thorough. Think about edge cases, scalability, and maintainability.`,
   {
     name: 'Dev Agent',
     isOrchestrator: false,
-    provider: 'anthropic',
-    model: 'claude-haiku-4-5-20251001',
+    provider: 'ollama',
+    model: 'gpt 120b',
     maxToolIterations: 200,
     systemPrompt: `You are a Dev Agent in an autonomous software department. You write code in an E2B sandbox.
 
@@ -97,8 +97,8 @@ RULES:
   {
     name: 'QA Agent',
     isOrchestrator: false,
-    provider: 'anthropic',
-    model: 'claude-haiku-4-5-20251001',
+    provider: 'ollama',
+    model: 'gpt 120b',
     maxToolIterations: 150,
     systemPrompt: `You are the QA Agent in an autonomous software department. You work in an E2B sandbox.
 
@@ -116,8 +116,8 @@ Be thorough. A bug in production is worse than a slow QA cycle.`,
   {
     name: 'DevOps Agent',
     isOrchestrator: false,
-    provider: 'anthropic',
-    model: 'claude-haiku-4-5-20251001',
+    provider: 'ollama',
+    model: 'gpt 120b',
     maxToolIterations: 150,
     systemPrompt: `You are the DevOps Agent in an autonomous software department. You work in an E2B sandbox.
 
@@ -135,8 +135,8 @@ For production deploys: always confirm with ask_human() first unless explicitly 
   {
     name: 'Marketing Lead',
     isOrchestrator: false,
-    provider: 'anthropic',
-    model: 'claude-haiku-4-5-20251001',
+    provider: 'ollama',
+    model: 'gpt 120b',
     maxToolIterations: 100,
     systemPrompt: `You are the Marketing Lead in an autonomous software department.
 
