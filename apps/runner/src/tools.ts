@@ -225,8 +225,24 @@ export const orchestrationTools = [
           target_agent_id: { type: 'string', description: 'ID of the agent to send the task to' },
           title: { type: 'string', description: 'Short title for the new task' },
           content: { type: 'string', description: 'Full task description for the target agent' },
+          priority: { type: 'number', description: 'Task priority: 0=urgent, 1=normal (default), 2=low' },
         },
         required: ['target_agent_id', 'title', 'content'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'route_back',
+      description: 'Send your result back to the agent that delegated this task to you. Only use this when the current task was routed to you by another agent.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Short title summarising your result' },
+          content: { type: 'string', description: 'Full result or response to send back to the delegating agent' },
+        },
+        required: ['title', 'content'],
       },
     },
   },

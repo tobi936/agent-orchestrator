@@ -54,11 +54,13 @@ const ORCHESTRATION_INSTRUCTIONS = `
 ---
 You also have orchestration tools to coordinate with other agents, the human, and the agent system:
 - route_task(target_agent_id, title, content): Send a follow-up task to another agent when you're done
+- route_back(title, content): Send your result back to the agent that delegated this task to you (only if this task was routed to you by another agent)
 - ask_human(question): Pause and ask the human user a question; the task resumes when they reply
 - create_agent(name, system_prompt, provider, model, repo_url?): Create a new agent
 - update_agent(agent_id, name?, system_prompt?, provider?, model?, repo_url?): Update an existing agent's settings
 
-Use route_task when your work needs to be verified or continued by another agent.
+Use route_task when your work needs to be verified or continued by a specific other agent.
+Use route_back when you were delegated a task and want to return the result to the delegating agent.
 Use ask_human when you need clarification or approval from the human.
 Use create_agent / update_agent to build or improve agents as part of your task.`
 
@@ -72,7 +74,7 @@ async function tick() {
         },
         thread: { orderBy: { createdAt: 'asc' } },
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
     }),
     prisma.agent.findMany({ select: { id: true, name: true, systemPrompt: true, status: true } }),
   ])
@@ -105,7 +107,8 @@ async function tick() {
     await prisma.task.update({ where: { id: task.id }, data: { status: 'IN_PROGRESS' } })
 
     let reply: string
-    let routeTarget: { agentId: string; title: string; content: string } | null = null
+    let routeTarget: { agentId: string; title: string; content: string; priority?: number } | null = null
+    let routeBackTarget: { title: string; content: string } | null = null
     let askHumanQuestion: string | null = null
 
     try {
@@ -115,7 +118,7 @@ async function tick() {
 
       const otherAgents = allAgents.filter((a) => a.id !== agent.id)
       const agentList = otherAgents.length > 0
-        ? `\n\n---\nAvailable agents you can delegate tasks to via route_task:\n${otherAgents.map((a) => `- ${a.name} (id: ${a.id}) — ${a.systemPrompt.slice(0, 100)}`).join('\n')}`
+        ? `\n\n---\nAvailable agents you can delegate tasks to via route_task or route_back:\n${otherAgents.map((a) => `- ${a.name} (id: ${a.id}) — ${a.systemPrompt.slice(0, 300)}`).join('\n')}`
         : ''
 
       const allowedSet = agent.allowedTools.length > 0 ? new Set(agent.allowedTools) : null
@@ -157,8 +160,16 @@ async function tick() {
               agentId: toolInput.target_agent_id,
               title: toolInput.title,
               content: toolInput.content,
+              priority: typeof toolInput.priority === 'number' ? toolInput.priority : undefined,
             }
             return `Task routed to agent ${toolInput.target_agent_id}`
+          }
+          if (toolName === 'route_back') {
+            if (!task.fromAgentId) {
+              return `Error: this task was not delegated by another agent — route_back cannot be used`
+            }
+            routeBackTarget = { title: toolInput.title, content: toolInput.content }
+            return `Result routed back to delegating agent`
           }
           if (toolName === 'ask_human') {
             askHumanQuestion = toolInput.question
@@ -235,7 +246,19 @@ async function tick() {
               fromAgentId: agent.id,
               title: routeTarget.title,
               content: routeTarget.content,
+              priority: routeTarget.priority ?? 1,
               thread: { create: [{ role: 'user', content: routeTarget.content }] },
+            },
+          })
+        }
+        if (routeBackTarget && task.fromAgentId) {
+          await tx.task.create({
+            data: {
+              agentId: task.fromAgentId,
+              fromAgentId: agent.id,
+              title: routeBackTarget.title,
+              content: routeBackTarget.content,
+              thread: { create: [{ role: 'user', content: routeBackTarget.content }] },
             },
           })
         }

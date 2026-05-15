@@ -42,6 +42,7 @@ model Task {
   content     String
   status      TaskStatus @default(PENDING)
   forHuman    Boolean    @default(false)
+  priority    Int        @default(1) // 0=urgent 1=normal 2=low
   createdAt   DateTime   @default(now())
   thread      TaskMessage[]
 }

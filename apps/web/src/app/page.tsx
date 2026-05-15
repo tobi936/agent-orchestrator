@@ -43,6 +43,7 @@ interface Task {
   content: string
   status: TaskStatus
   forHuman: boolean
+  priority: number
   createdAt: string
   thread: TaskMessage[]
 }
@@ -70,6 +71,12 @@ function statusColor(status: TaskStatus) {
   if (status === 'PENDING') return 'bg-orange-bg text-orange-fg'
   if (status === 'IN_PROGRESS') return 'bg-accent-bg text-accent-fg'
   return 'bg-green-bg text-green-fg'
+}
+
+function priorityLabel(p: number) {
+  if (p === 0) return { label: 'urgent', cls: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' }
+  if (p === 2) return { label: 'low', cls: 'bg-ink-4/20 text-ink-4' }
+  return null
 }
 
 // ─── MarkdownContent ─────────────────────────────────────────────────────────
@@ -375,7 +382,7 @@ function Sidebar({
         )}
       </div>
 
-      <div className="p-2 shrink-0 border-t border-line">
+      <div className="p-2 shrink-0 border-t border-line space-y-1.5">
         <Button
           variant="outline"
           size="sm"
@@ -385,6 +392,15 @@ function Sidebar({
           <span className="text-sm leading-none font-light">+</span>
           New Agent
         </Button>
+        <button
+          onClick={() => router.push('/tasks')}
+          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[11px] text-ink-3 hover:text-ink hover:bg-hover transition-colors"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 3h10M1 6h10M1 9h6" />
+          </svg>
+          All Tasks
+        </button>
       </div>
     </div>
   )
@@ -707,7 +723,7 @@ function AgentChat({
 }: {
   agent: Agent | null
   tasks: Task[]
-  onSendTask: (content: string) => void
+  onSendTask: (content: string, priority?: number) => void
   onSelectTask: (taskId: string) => void
   onToggle: () => void
   onDelete: () => void
@@ -719,13 +735,15 @@ function AgentChat({
   autoStart: boolean
 }) {
   const [input, setInput] = useState('')
+  const [priority, setPriority] = useState(1)
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!input.trim() || !agent) return
     if (!autoStart && agent.status !== 'RUNNING') return
-    onSendTask(input.trim())
+    onSendTask(input.trim(), priority)
     setInput('')
+    setPriority(1)
   }
 
   if (!agent) {
@@ -821,6 +839,16 @@ function AgentChat({
             disabled={!autoStart && agent.status !== 'RUNNING'}
             className="flex-1"
           />
+          <select
+            value={priority}
+            onChange={(e) => setPriority(Number(e.target.value))}
+            className="bg-raised border border-line rounded-md px-2 text-[11px] text-ink-2 focus:outline-none focus:border-accent"
+            title="Task priority"
+          >
+            <option value={0}>🔴 urgent</option>
+            <option value={1}>normal</option>
+            <option value={2}>low</option>
+          </select>
           <Button type="submit" disabled={(!autoStart && agent.status !== 'RUNNING') || !input.trim()}>
             Send
           </Button>
@@ -969,8 +997,8 @@ function TaskBacklogPanel({
 }: {
   tasks: Task[]
   agentName: string | null
-  tab: 'inbox' | 'outbox' | 'settings'
-  onTabChange: (t: 'inbox' | 'outbox' | 'settings') => void
+  tab: 'inbox' | 'outbox' | 'flow' | 'settings'
+  onTabChange: (t: 'inbox' | 'outbox' | 'flow' | 'settings') => void
   selectedTaskId: string | null
   onSelectTask: (id: string) => void
   outboxTasks: Task[]
@@ -1030,13 +1058,13 @@ function TaskBacklogPanel({
   return (
     <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex w-full md:w-[320px] shrink-0 flex-col inbox-panel overflow-hidden`}>
       <div className="h-11 flex items-center gap-1 px-3 border-b border-line shrink-0">
-        {(['inbox', 'outbox', 'settings'] as const).map((t) => (
+        {(['inbox', 'outbox', 'flow', 'settings'] as const).map((t) => (
           <button
             key={t}
             onClick={() => onTabChange(t)}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${tab === t ? 'bg-selected text-ink' : 'text-ink-3 hover:text-ink hover:bg-hover'}`}
           >
-            {t === 'inbox' ? 'Inbox' : t === 'outbox' ? 'Outbox' : 'Agent Settings'}
+            {t === 'inbox' ? 'Inbox' : t === 'outbox' ? 'Outbox' : t === 'flow' ? 'Flow' : 'Settings'}
             {t === 'inbox' && inboxPending > 0 && (
               <span className="w-4 h-4 rounded-full bg-accent text-white text-[9px] flex items-center justify-center font-mono leading-none">
                 {inboxPending}
@@ -1155,7 +1183,13 @@ function TaskBacklogPanel({
         </div>
       )}
 
-      {tab !== 'settings' && (
+      {tab === 'flow' && (
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <FlowView tasks={tasks} outboxTasks={outboxTasks} agentName={agentName} />
+        </div>
+      )}
+
+      {tab !== 'settings' && tab !== 'flow' && (
         <div className="flex-1 overflow-y-auto">
           {!agentName ? (
             <div className="flex items-center justify-center h-full">
@@ -1184,6 +1218,7 @@ function TaskBacklogPanel({
                     {task.forHuman && (
                       <span className="text-[9px] font-mono px-1.5 py-px rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">needs you</span>
                     )}
+                    {(() => { const p = priorityLabel(task.priority); return p ? <span className={`text-[9px] font-mono px-1.5 py-px rounded-full ${p.cls}`}>{p.label}</span> : null })()}
                     {tab === 'outbox' && task.agent && (
                       <span className="text-[9px] text-ink-4">→ {task.agent.name}</span>
                     )}
@@ -1196,6 +1231,106 @@ function TaskBacklogPanel({
               ))}
             </div>
           )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── FlowView ────────────────────────────────────────────────────────────────
+
+function FlowView({ tasks, outboxTasks, agentName }: { tasks: Task[]; outboxTasks: Task[]; agentName: string | null }) {
+  if (!agentName) {
+    return <div className="flex items-center justify-center h-full"><p className="text-[11px] text-ink-3">Select an agent</p></div>
+  }
+
+  // Group incoming by source agent (or "Human")
+  const incoming = new Map<string, { label: string; total: number; pending: number }>()
+  for (const t of tasks) {
+    const key = t.fromAgent?.id ?? '__human__'
+    const label = t.fromAgent?.name ?? 'Human'
+    const cur = incoming.get(key) ?? { label, total: 0, pending: 0 }
+    cur.total++
+    if (t.status !== 'DONE') cur.pending++
+    incoming.set(key, cur)
+  }
+
+  // Group outgoing by target agent
+  const outgoing = new Map<string, { label: string; total: number; pending: number }>()
+  for (const t of outboxTasks) {
+    const key = t.agent?.id ?? t.agentId
+    const label = t.agent?.name ?? 'Unknown'
+    const cur = outgoing.get(key) ?? { label, total: 0, pending: 0 }
+    cur.total++
+    if (t.status !== 'DONE') cur.pending++
+    outgoing.set(key, cur)
+  }
+
+  const inList = [...incoming.values()]
+  const outList = [...outgoing.values()]
+  const hasAny = inList.length > 0 || outList.length > 0
+
+  if (!hasAny) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-2 px-6">
+        <div className="w-8 h-8 rounded-full border-2 border-dashed border-line flex items-center justify-center">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M7 2v10M2 7h10" /></svg>
+        </div>
+        <p className="text-[11px] text-ink-3 text-center">No agent routing yet.<br/>Use <code className="font-mono text-accent text-[10px]">route_task()</code> to connect agents.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
+      {inList.length > 0 && (
+        <div>
+          <p className="text-[9px] font-semibold text-ink-3 uppercase tracking-widest mb-2">Incoming</p>
+          <div className="space-y-1.5">
+            {inList.map((src) => (
+              <div key={src.label} className="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-line bg-raised">
+                <span className="w-5 h-5 rounded-full bg-hover border border-line flex items-center justify-center shrink-0">
+                  <span className="text-[9px] font-bold text-ink-3">{src.label === 'Human' ? 'U' : src.label[0]}</span>
+                </span>
+                <span className="text-[11px] font-medium text-ink truncate flex-1">{src.label}</span>
+                <svg className="text-ink-4 shrink-0" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6h8M6 2l4 4-4 4" /></svg>
+                <div className="text-right shrink-0">
+                  <span className="text-[10px] font-mono text-ink-2">{src.total}</span>
+                  {src.pending > 0 && <span className="ml-1 text-[9px] font-mono px-1 rounded-full bg-orange-bg text-orange-fg">{src.pending}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Current agent */}
+      <div className="flex items-center gap-2 px-2.5 py-2.5 rounded-lg border-2 border-accent bg-accent/5">
+        <div className="w-5 h-5 rounded-[4px] bg-accent flex items-center justify-center shrink-0">
+          <span className="text-[9px] font-bold text-white">{agentName[0]}</span>
+        </div>
+        <span className="text-[12px] font-semibold text-ink truncate">{agentName}</span>
+        <span className="ml-auto text-[9px] font-mono text-accent-fg bg-accent-bg px-1.5 py-px rounded-full">you</span>
+      </div>
+
+      {outList.length > 0 && (
+        <div>
+          <p className="text-[9px] font-semibold text-ink-3 uppercase tracking-widest mb-2">Outgoing</p>
+          <div className="space-y-1.5">
+            {outList.map((tgt) => (
+              <div key={tgt.label} className="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-line bg-raised">
+                <div className="text-left shrink-0">
+                  <span className="text-[10px] font-mono text-ink-2">{tgt.total}</span>
+                  {tgt.pending > 0 && <span className="ml-1 text-[9px] font-mono px-1 rounded-full bg-orange-bg text-orange-fg">{tgt.pending}</span>}
+                </div>
+                <svg className="text-ink-4 shrink-0" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6h8M6 2l4 4-4 4" /></svg>
+                <span className="text-[11px] font-medium text-ink truncate flex-1">{tgt.label}</span>
+                <span className="w-5 h-5 rounded-full bg-hover border border-line flex items-center justify-center shrink-0">
+                  <span className="text-[9px] font-bold text-ink-3">{tgt.label[0]}</span>
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -1263,7 +1398,7 @@ export default function Dashboard() {
   const [mobilePanel, setMobilePanel] = useState<'agents' | 'chat' | 'tasks'>('agents')
   const [error, setError] = useState<string | null>(null)
   const [sidebarView, setSidebarView] = useState<SidebarView>('agents')
-  const [backlogTab, setBacklogTab] = useState<'inbox' | 'outbox' | 'settings'>('inbox')
+  const [backlogTab, setBacklogTab] = useState<'inbox' | 'outbox' | 'flow' | 'settings'>('inbox')
   const [activityOpen, setActivityOpen] = useState(true)
   const [autoStart, setAutoStart] = useState(true)
   const toolEventCounter = useRef(0)
@@ -1404,7 +1539,7 @@ export default function Dashboard() {
     }
   }
 
-  async function sendTask(content: string) {
+  async function sendTask(content: string, priority = 1) {
     if (!selectedAgentId) return
     if (autoStart && selectedAgent?.status === 'STOPPED') {
       await fetch(`/api/agents/${selectedAgentId}/start`, { method: 'POST' })
@@ -1413,7 +1548,7 @@ export default function Dashboard() {
     await fetch(`/api/agents/${selectedAgentId}/inbox`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, priority }),
     })
     fetchTasks()
   }
