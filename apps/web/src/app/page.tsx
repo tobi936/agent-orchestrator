@@ -1086,6 +1086,61 @@ function HumanInbox({
   )
 }
 
+// ─── BulkProviderUpdate ───────────────────────────────────────────────────────
+
+function BulkProviderUpdate({ onDone }: { onDone: () => void }) {
+  const [provider, setProvider] = useState('ollama')
+  const [model, setModel] = useState('gpt 120b')
+  const [loading, setLoading] = useState(false)
+  const [done, setDone] = useState<number | null>(null)
+
+  async function apply() {
+    setLoading(true)
+    setDone(null)
+    try {
+      const res = await fetch('/api/agents/bulk', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, model }),
+      })
+      const data = await res.json()
+      setDone(data.updated ?? 0)
+      onDone()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-1.5">
+        <select
+          value={provider}
+          onChange={(e) => setProvider(e.target.value)}
+          className="bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent"
+        >
+          {['ollama', 'anthropic', 'openai'].map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <input
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          placeholder="model name"
+          className="flex-1 bg-raised border border-line rounded px-2 py-1.5 text-[11px] text-ink font-mono focus:outline-none focus:border-accent"
+        />
+      </div>
+      <button
+        onClick={apply}
+        disabled={loading || !model.trim()}
+        className="w-full px-2 py-1.5 rounded-md text-[11px] font-medium text-white disabled:opacity-50 transition-opacity"
+        style={{ backgroundColor: '#3D3DF5' }}
+      >
+        {loading ? 'Updating…' : 'Apply to all agents'}
+      </button>
+      {done !== null && <p className="text-[10px] text-green-600 dark:text-green-400">{done} agents updated</p>}
+    </div>
+  )
+}
+
 // ─── TaskBacklogPanel ─────────────────────────────────────────────────────────
 
 const VALID_PROVIDERS = ['ollama', 'anthropic', 'openai'] as const
@@ -1118,6 +1173,7 @@ function TaskBacklogPanel({
   agents,
   selectedAgent,
   onAgentUpdated,
+  onRefreshAgents,
   mobileVisible,
 }: {
   tasks: Task[]
@@ -1132,6 +1188,7 @@ function TaskBacklogPanel({
   agents: Agent[]
   selectedAgent: Agent | null
   onAgentUpdated: (agent: Agent) => void
+  onRefreshAgents: () => void
   mobileVisible: boolean
 }) {
   const [editName, setEditName] = useState('')
@@ -1203,6 +1260,10 @@ function TaskBacklogPanel({
 
       {tab === 'settings' && (
         <div className="flex-1 overflow-y-auto p-3 space-y-5">
+          <section>
+            <p className="text-[9px] font-semibold text-ink-3 uppercase tracking-widest mb-2.5">Bulk Update</p>
+            <BulkProviderUpdate onDone={onRefreshAgents} />
+          </section>
           <section>
             <p className="text-[9px] font-semibold text-ink-3 uppercase tracking-widest mb-2.5">Agents</p>
             <div className="flex items-center justify-between mb-2">
@@ -1818,6 +1879,7 @@ export default function Dashboard() {
           agents={agents}
           selectedAgent={selectedAgent}
           onAgentUpdated={(updated) => setAgents((prev) => prev.map((a) => a.id === updated.id ? updated : a))}
+          onRefreshAgents={fetchAgents}
           mobileVisible={mobilePanel === 'tasks'}
         />
       </div>
