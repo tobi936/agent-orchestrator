@@ -382,7 +382,7 @@ function Sidebar({
         )}
       </div>
 
-      <div className="p-2 shrink-0 border-t border-line">
+      <div className="p-2 shrink-0 border-t border-line space-y-1.5">
         <Button
           variant="outline"
           size="sm"
@@ -392,6 +392,15 @@ function Sidebar({
           <span className="text-sm leading-none font-light">+</span>
           New Agent
         </Button>
+        <button
+          onClick={() => router.push('/tasks')}
+          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[11px] text-ink-3 hover:text-ink hover:bg-hover transition-colors"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 3h10M1 6h10M1 9h6" />
+          </svg>
+          All Tasks
+        </button>
       </div>
     </div>
   )

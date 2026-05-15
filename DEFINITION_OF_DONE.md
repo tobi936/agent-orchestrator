@@ -194,7 +194,7 @@ Eine Plattform auf der **autonome KI-Agenten wie ein Unternehmen zusammenarbeite
 3. ~~**Agent-Templates** — CEO, PO, Marketing etc. als One-Click Setup~~ ✅ Fertig
 4. ~~**Task-Flow Visualisierung** — wer hat was an wen delegiert~~ ✅ Fertig (Flow Tab)
 5. ~~**Task-Priorität** — Feld + Sortierung im Polling~~ ✅ Fertig
-6. **Globale Task-Übersicht** — eine Seite die alle Tasks über alle Agenten hinweg zeigt (Status, wer arbeitet daran, Priority, Flow)
+6. ~~**Globale Task-Übersicht**~~ ✅ Fertig — `/tasks` Seite mit allen Tasks, nach Agent gruppiert, Filter Active/All/Done, Priority-Dots, Routing-Info
 7. **Notifications** für Human Inbox
 
 ---
