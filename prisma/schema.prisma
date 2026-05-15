@@ -21,6 +21,7 @@ model Agent {
   containerId       String?
   maxToolIterations Int         @default(100)
   allowedTools      String[]
+  isOrchestrator    Boolean     @default(false)
   createdAt         DateTime    @default(now())
 
   tasks     Task[] @relation("AgentTasks")

@@ -70,13 +70,13 @@ async function tick() {
       where: { status: 'PENDING', forHuman: false },
       include: {
         agent: {
-          select: { id: true, systemPrompt: true, name: true, provider: true, model: true, repoUrl: true, maxToolIterations: true, allowedTools: true, status: true },
+          select: { id: true, systemPrompt: true, name: true, provider: true, model: true, repoUrl: true, maxToolIterations: true, allowedTools: true, status: true, isOrchestrator: true },
         },
         thread: { orderBy: { createdAt: 'asc' } },
       },
       orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
     }),
-    prisma.agent.findMany({ select: { id: true, name: true, systemPrompt: true, status: true } }),
+    prisma.agent.findMany({ select: { id: true, name: true, systemPrompt: true, status: true, isOrchestrator: true } }),
   ])
 
   // Auto-start any agents that have pending tasks but are currently stopped
@@ -271,6 +271,7 @@ async function tick() {
 
   if (autoStopEnabled) {
     for (const a of allAgents) {
+      if (a.isOrchestrator) continue // orchestrators never auto-stop
       if (a.status === 'RUNNING' && !sandboxes.has(a.id)) {
         continue
       }

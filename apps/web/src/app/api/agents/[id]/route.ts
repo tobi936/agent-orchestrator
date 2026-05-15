@@ -36,6 +36,9 @@
    if (Array.isArray(body.allowedTools)) {
      data.allowedTools = body.allowedTools.filter((t: unknown) => typeof t === 'string')
    }
+  if (typeof body.isOrchestrator === 'boolean') {
+    data.isOrchestrator = body.isOrchestrator
+  }
 
    const agent = await prisma.agent.update({ where: { id }, data })
    return NextResponse.json(agent)
