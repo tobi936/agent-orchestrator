@@ -573,16 +573,44 @@ function ActivitySummaryChips({ toolEvents }: { toolEvents: ToolEvent[] }) {
 }
 
 function ActivityBox({ toolEvents, open, onToggle }: { toolEvents: ToolEvent[], open: boolean, onToggle: () => void }) {
+  const [copied, setCopied] = useState(false)
+
+  function copyAll() {
+    const text = toolEvents
+      .map((ev) => {
+        if (ev.type === 'log') return ev.text ?? ''
+        if (ev.type === 'think') return `[think] ${ev.text ?? ''}`
+        if (ev.type === 'call') return `[call] ${ev.name}: ${JSON.stringify(ev.input ?? {})}`
+        return `[result] ${ev.name} — ${ev.ok ? 'ok' : 'error'}: ${ev.result ?? ''}`
+      })
+      .join('\n')
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+
   return (
     <div className="border border-line rounded-lg bg-surface overflow-hidden">
-      <button onClick={onToggle} className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-hover transition-colors">
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
-        <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Activity</span>
-        {!open && <ActivitySummaryChips toolEvents={toolEvents} />}
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className={`ml-auto shrink-0 text-ink-4 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}>
-          <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </button>
+      <div className="flex items-center">
+        <button onClick={onToggle} className="flex-1 px-3 py-1.5 flex items-center gap-1.5 hover:bg-hover transition-colors">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+          <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Activity</span>
+          {!open && <ActivitySummaryChips toolEvents={toolEvents} />}
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className={`ml-auto shrink-0 text-ink-4 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}>
+            <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+        {open && (
+          <button
+            onClick={copyAll}
+            className="px-2.5 py-1.5 text-[10px] font-mono text-ink-4 hover:text-ink transition-colors shrink-0"
+            title="Copy all activity logs"
+          >
+            {copied ? 'copied' : 'copy'}
+          </button>
+        )}
+      </div>
       <div className={`grid transition-all duration-200 ease-in-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
         <div className="overflow-hidden">
           <div className="border-t border-line px-3 py-2 space-y-1.5 max-h-80 overflow-y-auto">
@@ -963,9 +991,25 @@ function HumanInbox({
   onSelectTask: (agentId: string, taskId: string) => void
   mobileVisible: boolean
 }) {
+  const [notifPerm, setNotifPerm] = useState<NotificationPermission | 'unsupported'>('default')
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      setNotifPerm('unsupported')
+    } else {
+      setNotifPerm(Notification.permission)
+    }
+  }, [])
+
+  async function requestPermission() {
+    if (!('Notification' in window)) return
+    const result = await Notification.requestPermission()
+    setNotifPerm(result)
+  }
+
   return (
     <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex flex-1 min-w-0 flex-col border-r border-line`}>
-      <div className="h-11 px-4 flex items-center border-b border-line shrink-0 bg-raised">
+      <div className="h-11 px-4 flex items-center justify-between border-b border-line shrink-0 bg-raised">
         <div className="flex items-center gap-2">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500">
             <circle cx="7" cy="4.5" r="2.3" />
@@ -978,6 +1022,25 @@ function HumanInbox({
             </span>
           )}
         </div>
+        {notifPerm === 'default' && (
+          <button
+            onClick={requestPermission}
+            className="flex items-center gap-1 text-[10px] text-ink-3 hover:text-ink px-2 py-1 rounded hover:bg-hover transition-colors"
+            title="Enable browser notifications"
+          >
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 1a4 4 0 0 1 4 4v2l1 2H1l1-2V5a4 4 0 0 1 4-4z" />
+              <path d="M4.5 9.5a1.5 1.5 0 0 0 3 0" />
+            </svg>
+            Enable notifications
+          </button>
+        )}
+        {notifPerm === 'granted' && (
+          <span className="text-[9px] text-ink-4 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-green" />
+            notifications on
+          </span>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-3">
@@ -1526,9 +1589,26 @@ export default function Dashboard() {
     if (outboxRes.ok) setOutboxTasks(await outboxRes.json())
   }, [selectedAgentId])
 
+  const prevHumanTaskIds = useRef<Set<string>>(new Set())
+
   const fetchHumanTasks = useCallback(async () => {
     const res = await fetch('/api/human/tasks')
-    if (res.ok) setHumanTasks(await res.json())
+    if (!res.ok) return
+    const fresh: Task[] = await res.json()
+    setHumanTasks(fresh)
+
+    // Detect new tasks and fire browser notification
+    const newTasks = fresh.filter((t) => !prevHumanTaskIds.current.has(t.id))
+    prevHumanTaskIds.current = new Set(fresh.map((t) => t.id))
+    if (newTasks.length > 0 && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      newTasks.forEach((t) => {
+        new Notification('Agent needs your input', {
+          body: t.title,
+          icon: '/favicon.ico',
+          tag: t.id,
+        })
+      })
+    }
   }, [])
 
   const refreshSelectedTask = useCallback(async () => {
@@ -1539,6 +1619,12 @@ export default function Dashboard() {
       setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t))
     }
   }, [selectedAgentId, selectedTaskId])
+
+  // Update document title with pending human task count
+  useEffect(() => {
+    const count = humanTasks.length
+    document.title = count > 0 ? `(${count}) Orchestrator` : 'Orchestrator'
+  }, [humanTasks.length])
 
   useEffect(() => {
     fetchAgents()
@@ -1588,7 +1674,7 @@ export default function Dashboard() {
       } catch { /* ignore */ }
     }
     return () => es.close()
-  }, [selectedAgentId, agents])
+  }, [selectedAgentId, selectedAgent?.status])
 
   async function toggleAgent() {
     if (!selectedAgent) return

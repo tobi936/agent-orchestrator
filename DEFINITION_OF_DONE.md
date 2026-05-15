@@ -127,10 +127,11 @@ Eine Plattform auf der **autonome KI-Agenten wie ein Unternehmen zusammenarbeite
 - [x] User kann antworten → Task wird fortgesetzt
 - [x] `ask_human()` Tool für Agenten
 
-### 5.2 Human Inbox Verbesserungen ⬜
-- [ ] Notifications (Browser-Push oder Badge) wenn Human-Antwort benötigt wird
-- [ ] Kontext-Anzeige: von welchem Agenten kommt die Frage, was ist der ursprüngliche Task
-- [ ] Human kann Task auch komplett abbrechen (nicht nur antworten)
+### 5.2 Human Inbox Verbesserungen ✅ / ⬜
+- [x] `document.title` zeigt `(N) Orchestrator` wenn N Tasks auf Antwort warten
+- [x] Browser Push Notification wenn neuer Human-Task ankommt (opt-in, Permission-Button in Inbox)
+- [x] Kontext bereits vorhanden: Agent-Name, Task-Titel, letzte Nachricht in der Inbox sichtbar
+- [ ] Human kann Task komplett abbrechen (nicht nur antworten)
 
 ---
 
