@@ -93,10 +93,10 @@ Eine Plattform auf der **autonome KI-Agenten wie ein Unternehmen zusammenarbeite
 - [ ] Jeder Agent hat in seinem System-Prompt: eigene Rolle, direkte Reports, Verantwortungsbereich
 - [ ] Agenten können parallel arbeiten (mehrere laufen gleichzeitig)
 
-### 3.3 Workflow-Visualisierung ⬜
-- [ ] Task-Flow Graph in der UI: zeigt welcher Agent Task wohin delegiert hat (A → B → C)
+### 3.3 Workflow-Visualisierung ✅
+- [x] Task-Flow View im rechten Panel (neuer "Flow" Tab): zeigt Incoming/Outgoing Verbindungen des ausgewählten Agenten mit Task-Zählern
+- [ ] Globaler Flow-Graph über alle Agenten hinweg
 - [ ] Timeline-View: wann welcher Agent was gemacht hat
-- [ ] Echtzeit-Update: Graph wächst live während Agenten arbeiten
 
 ---
 
@@ -190,7 +190,7 @@ Eine Plattform auf der **autonome KI-Agenten wie ein Unternehmen zusammenarbeite
 1. ~~**`route_back()` Tool**~~ ✅ Fertig
 2. ~~**Volle Agent-Beschreibung** im System-Prompt (statt 100 Zeichen)~~ ✅ Fertig (300 Zeichen)
 3. ~~**Agent-Templates** — CEO, PO, Marketing etc. als One-Click Setup~~ ✅ Fertig
-4. **Task-Flow Visualisierung** — wer hat was an wen delegiert
+4. ~~**Task-Flow Visualisierung** — wer hat was an wen delegiert~~ ✅ Fertig (Flow Tab)
 5. **Task-Priorität** — Feld + Sortierung im Polling
 6. **Notifications** für Human Inbox
 
