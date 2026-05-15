@@ -5,15 +5,13 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status') // 'active' | 'done' | null = all
 
-  const where =
-    status === 'active'
-      ? { status: { in: ['PENDING', 'IN_PROGRESS'] as const } }
-      : status === 'done'
-        ? { status: 'DONE' as const }
-        : {}
-
   const tasks = await prisma.task.findMany({
-    where,
+    where:
+      status === 'active'
+        ? { status: { in: ['PENDING', 'IN_PROGRESS'] } }
+        : status === 'done'
+          ? { status: 'DONE' }
+          : undefined,
     orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
     take: 200,
     include: {
