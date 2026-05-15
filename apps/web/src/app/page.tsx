@@ -376,7 +376,18 @@ function Sidebar({
 
       <div className="flex-1 overflow-y-auto px-2 space-y-px pb-2">
         {filtered.length === 0 ? (
-          <p className="text-center text-[11px] text-ink-4 py-8">No agents</p>
+          <div className="flex flex-col items-center justify-center py-8 px-2 gap-3">
+            <p className="text-center text-[11px] text-ink-4">No agents</p>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={setupDepartment}
+              disabled={settingUp}
+              className="w-full bg-accent hover:bg-accent/90 text-white text-[11px]"
+            >
+              {settingUp ? 'Setting up…' : '🧠 Setup Software Department'}
+            </Button>
+          </div>
         ) : (
           filtered.map((agent) => (
             <button
@@ -402,17 +413,6 @@ function Sidebar({
       </div>
 
       <div className="p-2 shrink-0 border-t border-line space-y-1.5">
-        {agents.length === 0 && (
-          <Button
-            variant="default"
-            size="sm"
-            onClick={setupDepartment}
-            disabled={settingUp}
-            className="w-full bg-accent hover:bg-accent/90 text-white"
-          >
-            {settingUp ? 'Setting up…' : '🧠 Setup Software Department'}
-          </Button>
-        )}
         <Button
           variant="outline"
           size="sm"
