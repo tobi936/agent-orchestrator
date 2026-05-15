@@ -901,9 +901,25 @@ function HumanInbox({
   onSelectTask: (agentId: string, taskId: string) => void
   mobileVisible: boolean
 }) {
+  const [notifPerm, setNotifPerm] = useState<NotificationPermission | 'unsupported'>('default')
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      setNotifPerm('unsupported')
+    } else {
+      setNotifPerm(Notification.permission)
+    }
+  }, [])
+
+  async function requestPermission() {
+    if (!('Notification' in window)) return
+    const result = await Notification.requestPermission()
+    setNotifPerm(result)
+  }
+
   return (
     <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex flex-1 min-w-0 flex-col border-r border-line`}>
-      <div className="h-11 px-4 flex items-center border-b border-line shrink-0 bg-raised">
+      <div className="h-11 px-4 flex items-center justify-between border-b border-line shrink-0 bg-raised">
         <div className="flex items-center gap-2">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500">
             <circle cx="7" cy="4.5" r="2.3" />
@@ -916,6 +932,25 @@ function HumanInbox({
             </span>
           )}
         </div>
+        {notifPerm === 'default' && (
+          <button
+            onClick={requestPermission}
+            className="flex items-center gap-1 text-[10px] text-ink-3 hover:text-ink px-2 py-1 rounded hover:bg-hover transition-colors"
+            title="Enable browser notifications"
+          >
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 1a4 4 0 0 1 4 4v2l1 2H1l1-2V5a4 4 0 0 1 4-4z" />
+              <path d="M4.5 9.5a1.5 1.5 0 0 0 3 0" />
+            </svg>
+            Enable notifications
+          </button>
+        )}
+        {notifPerm === 'granted' && (
+          <span className="text-[9px] text-ink-4 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-green" />
+            notifications on
+          </span>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-3">
@@ -1449,9 +1484,26 @@ export default function Dashboard() {
     if (outboxRes.ok) setOutboxTasks(await outboxRes.json())
   }, [selectedAgentId])
 
+  const prevHumanTaskIds = useRef<Set<string>>(new Set())
+
   const fetchHumanTasks = useCallback(async () => {
     const res = await fetch('/api/human/tasks')
-    if (res.ok) setHumanTasks(await res.json())
+    if (!res.ok) return
+    const fresh: Task[] = await res.json()
+    setHumanTasks(fresh)
+
+    // Detect new tasks and fire browser notification
+    const newTasks = fresh.filter((t) => !prevHumanTaskIds.current.has(t.id))
+    prevHumanTaskIds.current = new Set(fresh.map((t) => t.id))
+    if (newTasks.length > 0 && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      newTasks.forEach((t) => {
+        new Notification('Agent needs your input', {
+          body: t.title,
+          icon: '/favicon.ico',
+          tag: t.id,
+        })
+      })
+    }
   }, [])
 
   const refreshSelectedTask = useCallback(async () => {
@@ -1462,6 +1514,12 @@ export default function Dashboard() {
       setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t))
     }
   }, [selectedAgentId, selectedTaskId])
+
+  // Update document title with pending human task count
+  useEffect(() => {
+    const count = humanTasks.length
+    document.title = count > 0 ? `(${count}) Orchestrator` : 'Orchestrator'
+  }, [humanTasks.length])
 
   useEffect(() => {
     fetchAgents()
