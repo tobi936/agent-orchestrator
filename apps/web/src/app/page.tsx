@@ -759,6 +759,8 @@ function AgentChat({
   toolEvents,
   mobileVisible,
   autoStart,
+  agentsTotal,
+  onSetupDepartment,
 }: {
   agent: Agent | null
   tasks: Task[]
@@ -772,6 +774,8 @@ function AgentChat({
   activityOpen: boolean
   onActivityToggle: () => void
   autoStart: boolean
+  agentsTotal: number
+  onSetupDepartment: () => void
 }) {
   const [input, setInput] = useState('')
   const [priority, setPriority] = useState(1)
@@ -788,12 +792,31 @@ function AgentChat({
   if (!agent) {
     return (
       <div className={`${mobileVisible ? 'flex' : 'hidden'} md:flex flex-1 items-center justify-center`}>
-        <div className="text-center select-none">
-          <div className="w-10 h-10 rounded-xl bg-accent-bg border border-accent-bdr flex items-center justify-center mx-auto mb-3">
-            <div className="w-4 h-4 rounded-[3px] bg-accent opacity-30" />
-          </div>
-          <p className="text-sm font-medium text-ink-2">Select an agent</p>
-          <p className="text-xs text-ink-3 mt-0.5">Pick one from the left to start</p>
+        <div className="text-center select-none max-w-xs px-4">
+          {agentsTotal === 0 ? (
+            <>
+              <div className="w-10 h-10 rounded-xl bg-accent-bg border border-accent-bdr flex items-center justify-center mx-auto mb-3">
+                <span className="text-lg">🧠</span>
+              </div>
+              <p className="text-sm font-medium text-ink mb-1">No agents yet</p>
+              <p className="text-xs text-ink-3 mb-4">Create your full software department with one click</p>
+              <button
+                onClick={onSetupDepartment}
+                className="w-full px-4 py-2 rounded-lg text-sm font-medium text-white"
+                style={{ backgroundColor: '#3D3DF5' }}
+              >
+                🧠 Setup Software Department
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="w-10 h-10 rounded-xl bg-accent-bg border border-accent-bdr flex items-center justify-center mx-auto mb-3">
+                <div className="w-4 h-4 rounded-[3px] bg-accent opacity-30" />
+              </div>
+              <p className="text-sm font-medium text-ink-2">Select an agent</p>
+              <p className="text-xs text-ink-3 mt-0.5">Pick one from the left to start</p>
+            </>
+          )}
         </div>
       </div>
     )
@@ -1691,6 +1714,8 @@ export default function Dashboard() {
             activityOpen={activityOpen}
             onActivityToggle={() => setActivityOpen(v => !v)}
             autoStart={autoStart}
+            agentsTotal={agents.length}
+            onSetupDepartment={async () => { await fetch('/api/setup-department', { method: 'POST' }); fetchAgents() }}
           />
         )}
 
