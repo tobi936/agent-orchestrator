@@ -58,10 +58,10 @@ Eine Plattform auf der **autonome KI-Agenten wie ein Unternehmen zusammenarbeite
 - [x] Ziel-Agent wird automatisch gestartet wenn Task ankommt
 - [x] Task wird innerhalb von 3 Sekunden aufgenommen (Polling-Intervall)
 
-### 2.3 Callback-Routing ⬜
-- [ ] `route_back()` Tool — Agent B antwortet zurück an Agent A (via `fromAgentId`)
-- [ ] Agent A wird wieder aufgeweckt mit B's Ergebnis als neue Nachricht
-- [ ] Unterstützt Feedback-Loops: A → B → zurück an A → weiter an C
+### 2.3 Callback-Routing ✅
+- [x] `route_back()` Tool — Agent B antwortet zurück an Agent A (via `fromAgentId`)
+- [x] Agent A wird wieder aufgeweckt mit B's Ergebnis als neue Nachricht
+- [x] Unterstützt Feedback-Loops: A → B → zurück an A → weiter an C
 
 ### 2.4 Task-Priorisierung ⬜
 - [ ] Feld `priority` am Task (`low | normal | high | urgent`)
@@ -188,8 +188,8 @@ Eine Plattform auf der **autonome KI-Agenten wie ein Unternehmen zusammenarbeite
 
 ## Nächste Prioritäten (Backlog-Reihenfolge)
 
-1. **`route_back()` Tool** — Callback von Agent B zu Agent A (höchste Priorität für vollautomatische Pipelines)
-2. **Volle Agent-Beschreibung** im System-Prompt (statt 100 Zeichen)
+1. ~~**`route_back()` Tool**~~ ✅ Fertig
+2. ~~**Volle Agent-Beschreibung** im System-Prompt (statt 100 Zeichen)~~ ✅ Fertig (300 Zeichen)
 3. **Agent-Templates** — CEO, PO, Marketing etc. als One-Click Setup
 4. **Task-Flow Visualisierung** — wer hat was an wen delegiert
 5. **Task-Priorität** — Feld + Sortierung im Polling

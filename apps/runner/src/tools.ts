@@ -233,6 +233,21 @@ export const orchestrationTools = [
   {
     type: 'function' as const,
     function: {
+      name: 'route_back',
+      description: 'Send your result back to the agent that delegated this task to you. Only use this when the current task was routed to you by another agent.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Short title summarising your result' },
+          content: { type: 'string', description: 'Full result or response to send back to the delegating agent' },
+        },
+        required: ['title', 'content'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'ask_human',
       description: 'Pause the task and ask the human user a question. The task will resume when the human replies.',
       parameters: {
