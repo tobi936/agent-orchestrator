@@ -534,16 +534,44 @@ function ActivitySummaryChips({ toolEvents }: { toolEvents: ToolEvent[] }) {
 }
 
 function ActivityBox({ toolEvents, open, onToggle }: { toolEvents: ToolEvent[], open: boolean, onToggle: () => void }) {
+  const [copied, setCopied] = useState(false)
+
+  function copyAll() {
+    const text = toolEvents
+      .map((ev) => {
+        if (ev.type === 'log') return ev.text ?? ''
+        if (ev.type === 'think') return `[think] ${ev.text ?? ''}`
+        if (ev.type === 'call') return `[call] ${ev.name}: ${JSON.stringify(ev.input ?? {})}`
+        return `[result] ${ev.name} — ${ev.ok ? 'ok' : 'error'}: ${ev.result ?? ''}`
+      })
+      .join('\n')
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+
   return (
     <div className="border border-line rounded-lg bg-surface overflow-hidden">
-      <button onClick={onToggle} className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-hover transition-colors">
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
-        <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Activity</span>
-        {!open && <ActivitySummaryChips toolEvents={toolEvents} />}
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className={`ml-auto shrink-0 text-ink-4 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}>
-          <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </button>
+      <div className="flex items-center">
+        <button onClick={onToggle} className="flex-1 px-3 py-1.5 flex items-center gap-1.5 hover:bg-hover transition-colors">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+          <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Activity</span>
+          {!open && <ActivitySummaryChips toolEvents={toolEvents} />}
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className={`ml-auto shrink-0 text-ink-4 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}>
+            <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+        {open && (
+          <button
+            onClick={copyAll}
+            className="px-2.5 py-1.5 text-[10px] font-mono text-ink-4 hover:text-ink transition-colors shrink-0"
+            title="Copy all activity logs"
+          >
+            {copied ? 'copied' : 'copy'}
+          </button>
+        )}
+      </div>
       <div className={`grid transition-all duration-200 ease-in-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
         <div className="overflow-hidden">
           <div className="border-t border-line px-3 py-2 space-y-1.5 max-h-80 overflow-y-auto">
@@ -1569,7 +1597,7 @@ export default function Dashboard() {
       } catch { /* ignore */ }
     }
     return () => es.close()
-  }, [selectedAgentId, agents])
+  }, [selectedAgentId, selectedAgent?.status])
 
   async function toggleAgent() {
     if (!selectedAgent) return
