@@ -6,15 +6,17 @@ import { appendLog, getBuffer, onLog, offLog, clearBuffer } from './logs'
 import { sandboxes } from './sandboxes'
 import { startAgent } from './start'
 import { getKeyStatus, switchToNextKey, switchToKey } from './ollamaKeys'
+import { generalRateLimit, expensiveRateLimit } from './rateLimiter'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
 
 app.use(cors())
 app.use(express.json())
+app.use(generalRateLimit)
 
 // ── Start agent ───────────────────────────────────────────────────────────────
-app.post('/agents/:id/start', async (req, res) => {
+app.post('/agents/:id/start', expensiveRateLimit, async (req, res) => {
   const agent = await prisma.agent.findUnique({ where: { id: req.params.id } })
   if (!agent) return res.status(404).json({ error: 'Not found' })
   if (agent.status === 'RUNNING') return res.status(409).json({ error: 'Already running' })
@@ -89,7 +91,7 @@ app.get('/agents/:id/metrics', async (req, res) => {
 })
 
 // ── Restart agent ─────────────────────────────────────────────────────────────
-app.post('/agents/:id/restart', async (req, res) => {
+app.post('/agents/:id/restart', expensiveRateLimit, async (req, res) => {
   const agent = await prisma.agent.findUnique({ where: { id: req.params.id } })
   if (!agent) return res.status(404).json({ error: 'Not found' })
 
