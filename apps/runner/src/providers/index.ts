@@ -32,7 +32,8 @@ export function createProvider({ provider, model }: ProviderConfig): AIProvider 
     case 'ollama':     return new OllamaProvider(model)
     case 'anthropic':  return new AnthropicProvider(model)
     case 'openai':     return new OpenAIProvider(model)
-    default: throw new Error(`Unknown provider "${provider}". Use: ollama | anthropic | openai`)
+    case 'gemini':     return new GeminiProvider(model)
+    default: throw new Error(`Unknown provider "${provider}". Use: ollama | anthropic | openai | gemini`)
   }
 }
 
@@ -265,6 +266,102 @@ async function runAnthropicToolLoop(
   return '[Max tool iterations reached]'
 }
 
+// ── Gemini (native API with tool support) ────────────────────────────────────
+
+type GeminiPart =
+  | { text: string }
+  | { functionCall: { name: string; args: Record<string, unknown> } }
+  | { functionResponse: { name: string; response: Record<string, unknown> } }
+
+type GeminiContent = { role: string; parts: GeminiPart[] }
+
+async function runGeminiToolLoop(
+  model: string,
+  systemPrompt: string,
+  userMessage: string,
+  sandbox: Sandbox | null,
+  log?: (line: string) => void,
+  history: ChatHistoryMessage[] = [],
+  maxToolIterations = 50,
+  customToolHandler?: CustomToolHandler,
+  allowedTools?: string[],
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY ?? ''
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
+
+  const toolList = filterTools([
+    ...(sandbox ? sandboxTools : []),
+    ...orchestrationTools,
+    ...ghTools,
+  ], allowedTools).map((t) => ({
+    name: t.function.name,
+    description: t.function.description,
+    parameters: t.function.parameters,
+  }))
+
+  const contents: GeminiContent[] = [
+    ...history.map((h) => ({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.content }] })),
+    { role: 'user', parts: [{ text: userMessage }] },
+  ]
+
+  for (let i = 0; i < maxToolIterations; i++) {
+    const body: Record<string, unknown> = {
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents,
+    }
+    if (toolList.length > 0) body.tools = [{ function_declarations: toolList }]
+
+    const res = await fetchWithRetry(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+
+    const data = await res.json() as {
+      candidates: { content: GeminiContent; finishReason: string }[]
+    }
+
+    const candidate = data.candidates[0]
+    const parts = candidate.content.parts
+
+    const textPart = parts.find((p): p is { text: string } => 'text' in p)
+    if (textPart?.text) log?.(`[THINK]${textPart.text}`)
+
+    const funcCalls = parts.filter((p): p is { functionCall: { name: string; args: Record<string, unknown> } } => 'functionCall' in p)
+
+    if (candidate.finishReason === 'STOP' || funcCalls.length === 0) {
+      return textPart?.text ?? ''
+    }
+
+    contents.push({ role: 'model', parts })
+
+    const responsesParts: GeminiPart[] = []
+    for (const fc of funcCalls) {
+      const { name, args } = fc.functionCall
+      const input = args as Record<string, string>
+      log?.(`[TOOL]${JSON.stringify({ type: 'call', name, input })}`)
+
+      let result: string
+      const isOrchestrationTool = ['route_task', 'ask_human', 'create_agent', 'update_agent'].includes(name)
+      if (customToolHandler && isOrchestrationTool) {
+        result = await customToolHandler(name, input)
+      } else if (name.startsWith('gh_')) {
+        result = await executeGhTool(name, input as Record<string, string | number>)
+      } else if (sandbox) {
+        result = await executeSandboxTool(name, input, sandbox)
+      } else {
+        result = `Tool ${name} not available without sandbox`
+      }
+
+      const ok = !result.startsWith('Error') && !result.startsWith('Unknown tool') && !result.startsWith('Tool ')
+      log?.(`[TOOL]${JSON.stringify({ type: 'result', name, ok, result: result.slice(0, 2000) })}`)
+      responsesParts.push({ functionResponse: { name, response: { result } } })
+    }
+    contents.push({ role: 'user', parts: responsesParts })
+  }
+  return '[Max tool iterations reached]'
+}
+
 // ── Providers ─────────────────────────────────────────────────────────────────
 
 class OllamaProvider implements AIProvider {
@@ -285,5 +382,12 @@ class AnthropicProvider implements AIProvider {
   constructor(private model: string) {}
   chat(systemPrompt: string, userMessage: string, sandbox: Sandbox | null, log?: (line: string) => void, history?: ChatHistoryMessage[], maxToolIterations?: number, customToolHandler?: CustomToolHandler, allowedTools?: string[]) {
     return runAnthropicToolLoop(this.model, systemPrompt, userMessage, sandbox, log, history, maxToolIterations, customToolHandler, allowedTools)
+  }
+}
+
+class GeminiProvider implements AIProvider {
+  constructor(private model: string) {}
+  chat(systemPrompt: string, userMessage: string, sandbox: Sandbox | null, log?: (line: string) => void, history?: ChatHistoryMessage[], maxToolIterations?: number, customToolHandler?: CustomToolHandler, allowedTools?: string[]) {
+    return runGeminiToolLoop(this.model, systemPrompt, userMessage, sandbox, log, history, maxToolIterations, customToolHandler, allowedTools)
   }
 }
